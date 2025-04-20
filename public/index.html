@@ -460,218 +460,169 @@
             loginUser(username, password);
         });
         
-        // Login function
-        function loginUser(username, password) {
-            log(`Attempting to login user: ${username}`);
-            
-            // Log the full URL we're calling
-            const loginUrl = `${API_BASE_URL}/api/login`;
-            log(`Making request to: ${loginUrl}`);
-            
-            fetch(loginUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    username: username,
-                    password: password
-                })
-            })
-            .then(response => {
-                log(`Received login response with status: ${response.status}`);
-                
-                // Check if the response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return response.text().then(text => {
-                        log(`Non-JSON response received:`, text);
-                        throw new Error('Non-JSON response received');
-                    });
-                }
-                
-                return response.json();
-            })
- 
 
-            // This part of the loginUser function needs to be updated
-.then(data => {
-    log(`Login response parsed as JSON:`, data);
+// Login function
+function loginUser(username, password) {
+    log(`Attempting to login user: ${username}`);
     
-    if (data.error) {
-        throw new Error(data.message || 'Unknown error');
-    }
+    // Log the full URL we're calling
+    const loginUrl = `${API_BASE_URL}/api/login`;
+    log(`Making request to: ${loginUrl}`);
     
-    // Handle "Refresh required" from ForeUp
-    if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
-        loginForm.style.display = 'block';
-        loadingIndicator.style.display = 'none';
+    fetch(loginUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    })
+    .then(response => {
+        log(`Received login response with status: ${response.status}`);
         
-        // Clear existing message content
-        loginMessage.innerHTML = '';
-        loginMessage.className = 'status-message warning';
-        
-        // Add message and button
-        const msgText = document.createElement('p');
-        msgText.textContent = 'ForeUp requires you to log in through their website first.';
-        loginMessage.appendChild(msgText);
-        
-        const redirectBtn = document.createElement('button');
-        redirectBtn.textContent = 'Log in on ForeUp';
-        redirectBtn.style.marginTop = '10px';
-        redirectBtn.onclick = function() {
-            // Open ForeUp login in a new window
-            window.open('https://foreupsoftware.com/index.php/booking/20103/3564#/login', '_blank');
-            
-            // Add a message about returning after login
-            const returnMsg = document.createElement('p'); 
-            returnMsg.textContent = 'After logging in on ForeUp, return here and try again.';
-            returnMsg.style.marginTop = '10px';
-            loginMessage.appendChild(returnMsg);
-        };
-        loginMessage.appendChild(redirectBtn);
-        return;
-    }
-                
-                if (data.success === false) {
-                    throw new Error(data.msg || 'Login failed');
-                }
-                
-                // Store JWT token if present
-                if (data.jwt) {
-                    localStorage.setItem('jwt_token', data.jwt);
-                    localStorage.setItem('user_name', data.first_name + ' ' + data.last_name);
-                    log(`Stored JWT token and user name`, {
-                        name: data.first_name + ' ' + data.last_name,
-                        jwt: data.jwt.substring(0, 20) + "..."
-                    });
-                    showLoggedInState();
-                } else {
-                    throw new Error('No authentication token received');
-                }
-            })
-            .catch(error => {
-                log(`Login error: ${error.message}`);
-                loginForm.style.display = 'block';
-                loadingIndicator.style.display = 'none';
-                showMessage(error.message || 'Login failed. Please check your credentials and try again.', 'error');
+        // Check if the response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                log(`Non-JSON response received:`, text);
+                throw new Error('Non-JSON response received');
             });
         }
         
-        // Show logged in state
-        function showLoggedInState() {
-            log("Showing logged in state");
-            
-            // Hide login form and loading
-            loginForm.style.display = 'none';
+        return response.json();
+    })
+    .then(data => {
+        log(`Login response parsed as JSON:`, data);
+        
+        if (data.error) {
+            throw new Error(data.message || 'Unknown error');
+        }
+        
+        // Store cookies if received
+        if (data.cookies) {
+            localStorage.setItem('foreup_cookies', data.cookies);
+            log(`Stored ForeUp cookies in localStorage`);
+        }
+        
+        // Handle "Refresh required" from ForeUp
+        if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
+            loginForm.style.display = 'block';
             loadingIndicator.style.display = 'none';
             
-            // Show courses container
-            coursesContainer.style.display = 'block';
+            // Clear existing message content
+            loginMessage.innerHTML = '';
+            loginMessage.className = 'status-message warning';
             
-            // Show user info
-            userInfo.style.display = 'block';
-            const storedName = localStorage.getItem('user_name') || 'User';
-            userName.textContent = storedName;
+            // Add message and button
+            const msgText = document.createElement('p');
+            msgText.textContent = 'ForeUp requires you to log in through their website first.';
+            loginMessage.appendChild(msgText);
             
-            // Load and render courses
-            loadCourses();
+            const redirectBtn = document.createElement('button');
+            redirectBtn.textContent = 'Log in on ForeUp';
+            redirectBtn.style.marginTop = '10px';
+            redirectBtn.onclick = function() {
+                // Open ForeUp login in a new window
+                const loginWindow = window.open('https://foreupsoftware.com/index.php/booking/20103/3564#/login', '_blank');
+                
+                // Add a message about returning after login
+                const returnMsg = document.createElement('p'); 
+                returnMsg.textContent = 'After logging in on ForeUp, return here and try again.';
+                returnMsg.style.marginTop = '10px';
+                loginMessage.appendChild(returnMsg);
+            };
+            loginMessage.appendChild(redirectBtn);
+            return;
         }
         
-        // Load courses from the worker
-        function loadCourses() {
-            log("Loading golf courses");
-            loadingIndicator.style.display = 'block';
-            
-            fetch(`${API_BASE_URL}/api/courses`)
-            .then(response => {
-                log(`Received courses response with status: ${response.status}`);
-                return response.json();
-            })
-            .then(courses => {
-                log(`Courses loaded:`, courses);
-                renderCourses(courses);
-                loadingIndicator.style.display = 'none';
-            })
-            .catch(error => {
-                log(`Error loading courses: ${error.message}`);
-                loadingIndicator.style.display = 'none';
-                showMessage('Failed to load golf courses. Please try again later.', 'error');
+        if (data.success === false) {
+            throw new Error(data.msg || 'Login failed');
+        }
+        
+        // Store JWT token if present
+        if (data.jwt) {
+            localStorage.setItem('jwt_token', data.jwt);
+            localStorage.setItem('user_name', data.first_name + ' ' + data.last_name);
+            log(`Stored JWT token and user name`, {
+                name: data.first_name + ' ' + data.last_name,
+                jwt: data.jwt.substring(0, 20) + "..."
+            });
+            showLoggedInState();
+        } else {
+            throw new Error('No authentication token received');
+        }
+    })
+    .catch(error => {
+        log(`Login error: ${error.message}`);
+        loginForm.style.display = 'block';
+        loadingIndicator.style.display = 'none';
+        showMessage(error.message || 'Login failed. Please check your credentials and try again.', 'error');
+    });
+}
+
+// Load tee times for a selected course
+function loadTeetimes(course) {
+    courseName.textContent = course.name;
+    
+    // Show loading
+    loadingIndicator.style.display = 'block';
+    coursesContainer.style.display = 'none';
+    
+    // Format date for API request (MM-DD-YYYY)
+    const selectedDate = new Date(datePicker.value);
+    const formattedDate = `${selectedDate.getMonth() + 1}-${selectedDate.getDate()}-${selectedDate.getFullYear()}`;
+    
+    // Get JWT token and cookies
+    const token = localStorage.getItem('jwt_token');
+    const cookies = localStorage.getItem('foreup_cookies');
+    
+    log(`Loading tee times for ${course.name} on ${formattedDate}`);
+    log(`Using cookies: ${cookies ? 'Yes' : 'No'}`);
+    
+    // Prepare headers
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (cookies) {
+        headers['X-ForeUp-Cookies'] = cookies;
+    }
+    
+    // Fetch tee times from worker
+    fetch(`${API_BASE_URL}/api/teetimes?courseId=${course.courseId}&facilityId=${course.facilityId}&date=${formattedDate}`, {
+        headers: headers
+    })
+    .then(response => {
+        log(`Received tee times response with status: ${response.status}`);
+        
+        // Check if the response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                log(`Non-JSON tee times response:`, text);
+                throw new Error('Non-JSON response received');
             });
         }
         
-        // Render golf courses
-        function renderCourses(courses) {
-            courseGrid.innerHTML = '';
-            
-            courses.forEach(course => {
-                const courseCard = document.createElement('div');
-                courseCard.className = 'course-card';
-                courseCard.onclick = function() {
-                    selectedCourse = course;
-                    log(`Selected course: ${course.name}`, course);
-                    loadTeetimes(course);
-                };
-                
-                courseCard.innerHTML = `
-                    <div class="course-name">${course.name}</div>
-                    <div class="course-details">${course.details}</div>
-                `;
-                
-                courseGrid.appendChild(courseCard);
-            });
-        }
-        
-        // Load tee times for a selected course
-        function loadTeetimes(course) {
-            courseName.textContent = course.name;
-            
-            // Show loading
-            loadingIndicator.style.display = 'block';
-            coursesContainer.style.display = 'none';
-            
-            // Format date for API request (MM-DD-YYYY)
-            const selectedDate = new Date(datePicker.value);
-            const formattedDate = `${selectedDate.getMonth() + 1}-${selectedDate.getDate()}-${selectedDate.getFullYear()}`;
-            
-            // Get JWT token
-            const token = localStorage.getItem('jwt_token');
-            
-            log(`Loading tee times for ${course.name} on ${formattedDate}`);
-            
-            // Fetch tee times from worker
-            fetch(`${API_BASE_URL}/api/teetimes?courseId=${course.courseId}&facilityId=${course.facilityId}&date=${formattedDate}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            })
-            .then(response => {
-                log(`Received tee times response with status: ${response.status}`);
-                
-                // Check if the response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return response.text().then(text => {
-                        log(`Non-JSON tee times response:`, text);
-                        throw new Error('Non-JSON response received');
-                    });
-                }
-                
-                return response.json();
-            })
-            .then(data => {
-                log(`Tee times loaded:`, data);
-                renderTeetimes(data);
-                loadingIndicator.style.display = 'none';
-                teetimesContainer.style.display = 'block';
-            })
-            .catch(error => {
-                log(`Error loading tee times: ${error.message}`);
-                loadingIndicator.style.display = 'none';
-                coursesContainer.style.display = 'block';
-                showMessage('Failed to load tee times. Please try again later.', 'error');
-            });
-        }
+        return response.json();
+    })
+    .then(data => {
+        log(`Tee times loaded:`, data);
+        renderTeetimes(data);
+        loadingIndicator.style.display = 'none';
+        teetimesContainer.style.display = 'block';
+    })
+    .catch(error => {
+        log(`Error loading tee times: ${error.message}`);
+        loadingIndicator.style.display = 'none';
+        coursesContainer.style.display = 'block';
+        showMessage('Failed to load tee times. Please try again later.', 'error');
+    });
+}
+
+
         
         // Render tee times
         function renderTeetimes(data) {

@@ -114,37 +114,47 @@ async function handleLoginRequest(request) {
     formData.append("username", requestData.username);
     formData.append("password", requestData.password);
     
-    // Updated headers based on the successful Playwright script
-    const headers = {
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "Accept": "application/json, text/javascript, */*; q=0.01",
-      "api-key": "no_limits",
-      "x-fu-golfer-location": "foreup",
-      "x-requested-with": "XMLHttpRequest",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      "Origin": "https://foreupsoftware.com",
-      "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
-    };
-    
     // Make the request to ForeUp
     const response = await fetch(loginUrl, {
       method: "POST",
-      headers: headers,
-      body: formData
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "api-key": "no_limits",
+        "x-fu-golfer-location": "foreup",
+        "x-requested-with": "XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Origin": "https://foreupsoftware.com",
+        "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
+      },
+      body: formData,
+      redirect: 'follow'
     });
     
-    // Log response status
+    // Extract cookies from response
+    const cookies = response.headers.get('set-cookie');
+    
+    // Log response status and cookies
     console.log(`Received login response with status: ${response.status}`);
+    if (cookies) {
+      console.log(`Received cookies: ${cookies.substring(0, 50)}...`);
+    } else {
+      console.log('No cookies received');
+    }
     
     // Try to parse response as JSON
     let data;
     try {
       const responseText = await response.text();
-      console.log(`Response text: ${responseText}`);
+      console.log(`Response text: ${responseText.substring(0, 200)}...`);
       
-      // Only try to parse if there's content
       if (responseText && responseText.trim()) {
         data = JSON.parse(responseText);
+        
+        // If we got cookies, include them in the response to the frontend
+        if (cookies) {
+          data.cookies = cookies;
+        }
         
         // Handle the "Refresh required" error
         if (data.success === false && data.msg === "Refresh required") {
@@ -172,7 +182,7 @@ async function handleLoginRequest(request) {
   }
 }
 
-// Handle tee time requests
+// Update tee time requests function
 async function handleTeeTimesRequest(request) {
   try {
     // Parse the incoming request for course ID, date, etc.
@@ -186,19 +196,30 @@ async function handleTeeTimesRequest(request) {
     // Create the tee times URL
     const teeTimesUrl = `https://foreupsoftware.com/index.php/api/booking/times?time=&date=${date}&holes=&players=&booking_class=&schedule_id=${courseId}&schedule_ids%5B%5D=${courseId}&specials_only=0&api_key=no_limits`;
     
-    // Get JWT token from the request headers
+    // Get JWT token and cookies from the request headers
     const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const cookies = request.headers.get("X-ForeUp-Cookies"); // Custom header for cookies
+    
+    const headers = {
+      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "Origin": "https://foreupsoftware.com",
+      "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`
+    };
+    
+    // Add authorization headers based on what we have
+    if (jwt) {
+      headers["Authorization"] = `Bearer ${jwt}`;
+    }
+    
+    if (cookies) {
+      headers["Cookie"] = cookies;
+    }
     
     // Make the request to ForeUp
     const response = await fetch(teeTimesUrl, {
       method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": jwt ? `Bearer ${jwt}` : "",
-        "Origin": "https://foreupsoftware.com",
-        "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-      }
+      headers: headers
     });
     
     console.log(`Received tee times response with status: ${response.status}`);
@@ -226,6 +247,7 @@ async function handleTeeTimesRequest(request) {
     return errorResponse(`Failed to fetch tee times: ${error.message}`);
   }
 }
+
 
 // Handle course list requests
 async function handleCoursesRequest() {
