@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SATX Golf - Alamo City Golf Trail</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2E7D32;
+            --primary-light: #4CAF50;
+            --primary-dark: #1B5E20;
+            --accent: #FFD54F;
+            --text: #212121;
+            --text-light: #757575;
+            --bg-light: #F5F5F5;
+            --white: #FFFFFF;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: var(--white);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo svg {
+            margin-right: 10px;
+        }
+        
+        .user-info {
+            display: none;
+            align-items: center;
+        }
+        
+        .user-name {
+            margin-right: 15px;
+            font-weight: 500;
+        }
+        
+        .logout-btn {
+            background-color: transparent;
+            border: 1px solid var(--white);
+            color: var(--white);
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+        
+        .logout-btn:hover {
+            background-color: var(--white);
+            color: var(--primary);
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 4rem 0;
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            color: var(--white);
+            margin-bottom: 2rem;
+        }
+        
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto;
+            opacity: 0.9;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            color: var(--primary);
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background-color: var(--accent);
+        }
+        
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .course-card {
+            background-color: var(--white);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        
+        .course-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .course-img {
+            height: 200px;
+            width: 100%;
+            background-color: #ddd;
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .course-info {
+            padding: 1.5rem;
+        }
+        
+        .course-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+        
+        .course-details {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+        
+        .book-btn {
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        
+        .book-btn:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal {
+            background-color: var(--white);
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            padding: 2rem;
+            transform: translateY(-20px);
+            transition: var(--transition);
+        }
+        
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        input[type="password"],
+        input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .login-btn {
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 12px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+            font-weight: 600;
+            margin-top: 1rem;
+            font-size: 1rem;
+        }
+        
+        .login-btn:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .status-message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        /* Loading Indicator */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Footer */
+        footer {
+            background-color: var(--primary-dark);
+            color: var(--white);
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 3rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .hero p {
+                font-size: 1rem;
+            }
+            
+            .section-title {
+                font-size: 1.5rem;
+            }
+            
+            .course-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Version Tag */
+        .version-tag {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 18V2"/>
+                    <path d="M8 6h8"/>
+                    <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                    <path d="M10 14v7"/>
+                    <path d="M14 14v7"/>
+                    <path d="M6 18h12"/>
+                    <path d="M6 22h12"/>
+                </svg>
+                <span>SATX Golf</span>
+            </div>
+            <div class="user-info" id="userInfo">
+                <span class="user-name" id="userName">User</span>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
+            </div>
+        </div>
+    </header>
+    
+    <section class="hero">
+        <div class="container">
+            <h1>San Antonio Golf Trail</h1>
+            <p>Book your next tee time at one of San Antonio's premier golf courses</p>
+        </div>
+    </section>
+    
+    <main class="container">
+        <h2 class="section-title">Our Courses</h2>
+        
+        <div class="course-grid" id="courseGrid">
+            <!-- Course cards will be generated by JavaScript -->
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Loading courses...</p>
+        </div>
+    </main>
+    
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Login to Book</h3>
+                <button class="close-modal" id="closeModal">&times;</button>
+            </div>
+            <div id="loginMessage" class="status-message"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Email / Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 SATX Golf - Alamo City Golf Trail</p>
+        </div>
+    </footer>
+    
+    <!-- Version Tag -->
+    <div class="version-tag">v1.0.5</div>
+    
+    <script>
+        // Config
+        const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev";
+        const APP_VERSION = "1.0.5";
+        
+        // DOM Elements
+        const courseGrid = document.getElementById('courseGrid');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const loginModal = document.getElementById('loginModal');
+        const closeModal = document.getElementById('closeModal');
+        const loginForm = document.getElementById('loginForm');
+        const loginMessage = document.getElementById('loginMessage');
+        const userInfo = document.getElementById('userInfo');
+        const userName = document.getElementById('userName');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        // Course images - you can replace these with actual course images
+        const courseImages = {
+            "Brackenridge Park": "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "Cedar Creek": "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "Mission del Lago": "https://images.unsplash.com/photo-1592919505780-303950717480?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "Northern Hills": "https://images.unsplash.com/photo-1563299796-17596ed6b017?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "Olmos Basin": "https://images.unsplash.com/photo-1591123120675-6f7f1aae0e5b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "Riverside 18": "https://images.unsplash.com/photo-1600170034071-d53e525296d7?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "The Teddy Bear Par 3": "https://images.unsplash.com/photo-1580236580881-2e91a67acd59?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
+            "San Pedro Par 3": "https://images.unsplash.com/photo-1609198092458-38a293c7ac4b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+        };
+        
+        // Currently selected course
+        let selectedCourse = null;
+        
+        // Check if user is logged in
+        function checkLogin() {
+            const token = localStorage.getItem('jwt_token');
+            const storedName = localStorage.getItem('user_name');
+            
+            if (token) {
+                if (storedName) {
+                    userName.textContent = storedName;
+                }
+                userInfo.style.display = 'flex';
+                return true;
+            }
+            return false;
+        }
+        
+        // Load courses
+        function loadCourses() {
+            loadingIndicator.style.display = 'block';
+            courseGrid.innerHTML = '';
+            
+            fetch(`${API_BASE_URL}/api/courses`)
+                .then(response => response.json())
+                .then(courses => {
+                    renderCourses(courses);
+                    loadingIndicator.style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error loading courses:', error);
+                    loadingIndicator.style.display = 'none';
+                    
+                    // Show error message
+                    courseGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
+                            <h3>Error Loading Courses</h3>
+                            <p>Could not connect to the server. Please try again later.</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Render courses
+        function renderCourses(courses) {
+            courseGrid.innerHTML = '';
+            
+            courses.forEach(course => {
+                const courseCard = document.createElement('div');
+                courseCard.className = 'course-card';
+                
+                // Get image URL (default if not found)
+                const imageUrl = courseImages[course.name] || 'https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80';
+                
+                courseCard.innerHTML = `
+                    <div class="course-img" style="background-image: url('${imageUrl}')"></div>
+                    <div class="course-info">
+                        <h3 class="course-name">${course.name}</h3>
+                        <p class="course-details">${course.details}</p>
+                        <button class="book-btn">Book Tee Time</button>
+                    </div>
+                `;
+                
+                // Add click event to book button
+                const bookBtn = courseCard.querySelector('.book-btn');
+                bookBtn.addEventListener('click', () => {
+                    selectedCourse = course;
+                    showLoginModal();
+                });
+                
+                courseGrid.appendChild(courseCard);
+            });
+        }
+        
+        // Show login modal
+        function showLoginModal() {
+            loginModal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+        
+        // Hide login modal
+        function hideLoginModal() {
+            loginModal.classList.remove('active');
+            document.body.style.overflow = ''; // Enable scrolling
+        }
+        
+        // Handle login form submission
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            
+            if (!usernameInput.value || !passwordInput.value) {
+                showMessage('Please enter both username and password.', 'error');
+                return;
+            }
+            
+            loginUser(usernameInput.value, passwordInput.value);
+        });
+        
+        // Login user
+        function loginUser(username, password) {
+            // Clear previous messages
+            loginMessage.style.display = 'none';
+            
+            // Create loading indicator
+            const loginBtn = document.querySelector('.login-btn');
+            const originalText = loginBtn.textContent;
+            loginBtn.textContent = 'Signing in...';
+            loginBtn.disabled = true;
+            
+            fetch(`${API_BASE_URL}/api/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button
+                loginBtn.textContent = originalText;
+                loginBtn.disabled = false;
+                
+                if (data.error) {
+                    showMessage(data.message || 'Unknown error', 'error');
+                    return;
+                }
+                
+                // Store cookies if received
+                if (data.cookies) {
+                    localStorage.setItem('foreup_cookies', data.cookies);
+                }
+                
+                // Handle "Refresh required" error
+                if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
+                    showMessage('ForeUp requires you to log in through their website first. Please complete login at ForeUp and try again.', 'error');
+                    return;
+                }
+                
+                if (data.success === false) {
+                    showMessage(data.msg || 'Login failed', 'error');
+                    return;
+                }
+                
+                // Store JWT token if present
+                if (data.jwt) {
+                    localStorage.setItem('jwt_token', data.jwt);
+                    
+                    // Store user name
+                    if (data.first_name && data.last_name) {
+                        const fullName = `${data.first_name} ${data.last_name}`;
+                        localStorage.setItem('user_name', fullName);
+                        userName.textContent = fullName;
+                    }
+                    
+                    // Show user info
+                    userInfo.style.display = 'flex';
+                    
+                    // Hide login modal
+                    hideLoginModal();
+                    
+                    // Redirect to tee times page
+                    if (selectedCourse) {
+                        // In a real app, redirect to tee times page
+                        alert(`Success! You'll be redirected to tee times for ${selectedCourse.name}`);
+                    }
+                } else {
+                    showMessage('No authentication token received', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                loginBtn.textContent = originalText;
+                loginBtn.disabled = false;
+                showMessage('Login failed. Please check your credentials and try again.', 'error');
+            });
+        }
+        
+        // Show message in login modal
+        function showMessage(message, type) {
+            loginMessage.textContent = message;
+            loginMessage.className = `status-message ${type}`;
+            loginMessage.style.display = 'block';
+        }
+        
+        // Handle logout
+        logoutBtn.addEventListener('click', function() {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('foreup_cookies');
+            userInfo.style.display = 'none';
+            
+            // Reload the page
+            location.reload();
+        });
+        
+        // Close modal when clicking the X
+        closeModal.addEventListener('click', hideLoginModal);
+        
+        // Close modal when clicking outside
+        loginModal.addEventListener('click', function(e) {
+            if (e.target === loginModal) {
+                hideLoginModal();
+            }
+        });
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            checkLogin();
+            
+            // Load courses
+            loadCourses();
+            
+            // Health check
+            fetch(`${API_BASE_URL}/health`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('API health check:', data);
+                })
+                .catch(error => {
+                    console.error('API health check failed:', error);
+                });
+        });
+    </script>
+</body>
+</html>
