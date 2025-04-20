@@ -1,4 +1,4 @@
-// ForeUp API Proxy - Cloudflare Worker (Debug Version)
+// ForeUp API Proxy - Cloudflare Worker (Version 1.0.1)
 // This worker handles API requests to the ForeUp system, avoiding CORS issues
 
 // Define CORS headers for all responses
@@ -74,7 +74,11 @@ async function handleRequest(request) {
     
     // Health check endpoint
     if (path === "/health" || path === "/") {
-      return jsonResponse({ status: "ok", message: "ForeUp API Proxy is running" });
+      return jsonResponse({ 
+        status: "ok", 
+        message: "ForeUp API Proxy is running", 
+        version: "1.0.1" 
+      });
     }
     
     // Default response for unknown paths
@@ -110,22 +114,22 @@ async function handleLoginRequest(request) {
     formData.append("username", requestData.username);
     formData.append("password", requestData.password);
     
-    // Log the request we're about to make
-    console.log(`Sending login request to ${loginUrl}`);
+    // Updated headers based on the successful Playwright script
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "Accept": "application/json, text/javascript, */*; q=0.01",
+      "api-key": "no_limits",
+      "x-fu-golfer-location": "foreup",
+      "x-requested-with": "XMLHttpRequest",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "Origin": "https://foreupsoftware.com",
+      "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
+    };
     
     // Make the request to ForeUp
     const response = await fetch(loginUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "api-key": "no_limits",
-        "x-fu-golfer-location": "foreup",
-        "x-requested-with": "XMLHttpRequest",
-        "Origin": "https://foreupsoftware.com",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
-      },
+      headers: headers,
       body: formData
     });
     
@@ -141,19 +145,23 @@ async function handleLoginRequest(request) {
       // Only try to parse if there's content
       if (responseText && responseText.trim()) {
         data = JSON.parse(responseText);
+        
+        // Handle the "Refresh required" error
+        if (data.success === false && data.msg === "Refresh required") {
+          return jsonResponse({
+            success: false,
+            msg: "Refresh required",
+            openNewWindow: true,
+            forceRedirect: true,
+            redirectUrl: "https://foreupsoftware.com/index.php/booking/20103/3564#/login"
+          });
+        }
       } else {
         return errorResponse("Empty response from ForeUp API", 502);
       }
     } catch (error) {
       console.error(`Error parsing login response: ${error.message}`);
       return errorResponse("Invalid JSON response from ForeUp API", 502);
-    }
-    
-    // Log login success/failure
-    if (data && data.jwt) {
-      console.log("Login successful, JWT token received");
-    } else {
-      console.log("Login failed: " + (data?.msg || "No error message"));
     }
     
     // Return the response with CORS headers
@@ -188,7 +196,8 @@ async function handleTeeTimesRequest(request) {
         "Accept": "application/json",
         "Authorization": jwt ? `Bearer ${jwt}` : "",
         "Origin": "https://foreupsoftware.com",
-        "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`
+        "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
       }
     });
     

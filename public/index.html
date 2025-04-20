@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SATX Golf - Alamo City Golf Trail UnOfficial HomeGrown Booking App</title>
+    <title>SATX Golf - Alamo City Golf Trail v1.0.1</title>
     <style>
         /* Simple, clean styling */
         :root {
@@ -140,6 +140,11 @@
             color: #cc0000;
         }
         
+        .warning {
+            background-color: #fff9e6;
+            color: #996600;
+        }
+        
         .loading {
             display: none;
             text-align: center;
@@ -266,6 +271,18 @@
         .panel-clear {
             background-color: #cc0000;
         }
+        
+        /* Version tag */
+        .version-tag {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(51, 102, 51, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -342,9 +359,13 @@
         </div>
     </div>
     
+    <!-- Version tag -->
+    <div class="version-tag">v1.0.1</div>
+    
     <script>
         // Config - Cloudflare Worker URL
         const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev"; // Your deployed worker URL
+        const APP_VERSION = "1.0.1"; // Version number for cache busting
         
         // DOM Elements
         const loginForm = document.getElementById('loginForm');
@@ -443,7 +464,11 @@
         function loginUser(username, password) {
             log(`Attempting to login user: ${username}`);
             
-            fetch(`${API_BASE_URL}/api/login`, {
+            // Log the full URL we're calling
+            const loginUrl = `${API_BASE_URL}/api/login`;
+            log(`Making request to: ${loginUrl}`);
+            
+            fetch(loginUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -472,6 +497,37 @@
                 
                 if (data.error) {
                     throw new Error(data.message || 'Unknown error');
+                }
+                
+                // Handle "Refresh required" from ForeUp
+                if (data.success === false && data.msg === "Refresh required") {
+                    loginForm.style.display = 'block';
+                    loadingIndicator.style.display = 'none';
+                    
+                    // Clear existing message content
+                    loginMessage.innerHTML = '';
+                    loginMessage.className = 'status-message warning';
+                    
+                    // Add message and button
+                    const msgText = document.createElement('p');
+                    msgText.textContent = 'ForeUp requires you to log in through their website first.';
+                    loginMessage.appendChild(msgText);
+                    
+                    const redirectBtn = document.createElement('button');
+                    redirectBtn.textContent = 'Log in on ForeUp';
+                    redirectBtn.style.marginTop = '10px';
+                    redirectBtn.onclick = function() {
+                        // Open ForeUp login in a new window
+                        const loginWindow = window.open('https://foreupsoftware.com/index.php/booking/20103/3564#/login', '_blank');
+                        
+                        // Add a message about returning after login
+                        const returnMsg = document.createElement('p'); 
+                        returnMsg.textContent = 'After logging in on ForeUp, return here and try again.';
+                        returnMsg.style.marginTop = '10px';
+                        loginMessage.appendChild(returnMsg);
+                    };
+                    loginMessage.appendChild(redirectBtn);
+                    return;
                 }
                 
                 if (data.success === false) {
@@ -694,6 +750,10 @@
             .then(response => response.json())
             .then(data => {
                 log(`API health check:`, data);
+                // Check worker version
+                if (data.version && data.version !== APP_VERSION) {
+                    log(`Worker version (${data.version}) doesn't match frontend version (${APP_VERSION})`);
+                }
             })
             .catch(error => {
                 log(`API health check failed: ${error.message}`);
@@ -702,7 +762,7 @@
         
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
-            log("Application initialized");
+            log(`Application initialized (version ${APP_VERSION})`);
             
             // Check if user is already logged in
             if (checkLogin()) {
