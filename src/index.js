@@ -123,6 +123,7 @@ async function handleLoginRequest(request) {
         "x-fu-golfer-location": "foreup",
         "x-requested-with": "XMLHttpRequest",
         "Origin": "https://foreupsoftware.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
       },
       body: formData
