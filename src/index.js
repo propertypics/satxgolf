@@ -269,7 +269,6 @@ async function handleTeeTimesRequest(request) {
       headers: headers
     });
 
-#############
     
     console.log(`Received tee times response with status: ${response.status}`);
     
