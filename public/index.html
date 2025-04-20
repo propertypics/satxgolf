@@ -601,6 +601,10 @@ function checkCookiesValidity() {
                     localStorage.setItem('foreup_cookies', data.cookies);
                     log(`Stored ForeUp cookies in localStorage`);
                 }
+                if (data.jwt) {
+  		    localStorage.setItem('jwt_token', data.jwt);
+  		    log(`Stored JWT token in localStorage`, data.jwt.substring(0, 20) + "...");
+		}
                 
                 // Handle "Refresh required" from ForeUp with cookies
                 if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
@@ -691,6 +695,9 @@ function checkCookiesValidity() {
                 headers['X-ForeUp-Cookies'] = cookies;
                 log("Including cookies in courses request");
             }
+            if (token) {
+ 		 headers['Authorization'] = `Bearer ${token}`;
+	    }
             
             fetch(`${API_BASE_URL}/api/courses`, {
                 headers: headers
@@ -760,6 +767,9 @@ function checkCookiesValidity() {
             if (cookies) {
                 headers['X-ForeUp-Cookies'] = cookies;
             }
+            if (token) {
+ 		 headers['Authorization'] = `Bearer ${token}`;
+	    }	
             
             // Fetch tee times from worker
             fetch(`${API_BASE_URL}/api/teetimes?courseId=${course.courseId}&facilityId=${course.facilityId}&date=${formattedDate}`, {

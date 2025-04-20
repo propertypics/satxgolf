@@ -226,6 +226,7 @@ async function handleLoginRequest(request) {
 }
 
 // Update tee time requests function
+// Handle tee time requests
 async function handleTeeTimesRequest(request) {
   try {
     // Parse the incoming request for course ID, date, etc.
@@ -241,18 +242,21 @@ async function handleTeeTimesRequest(request) {
     
     // Get JWT token and cookies from the request headers
     const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
-    const cookies = request.headers.get("X-ForeUp-Cookies"); // Custom header for cookies
+    const cookies = request.headers.get("X-ForeUp-Cookies");
     
     const headers = {
       "Accept": "application/json",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       "Origin": "https://foreupsoftware.com",
-      "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`
+      "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`,
+      "api-key": "no_limits",                     // Add this line
+      "x-fu-golfer-location": "foreup",           // Add this line
+      "x-requested-with": "XMLHttpRequest"        // Add this line
     };
     
     // Add authorization headers based on what we have
     if (jwt) {
-      headers["Authorization"] = `Bearer ${jwt}`;
+      headers["x-authorization"] = `Bearer ${jwt}`;  // CHANGE THIS LINE from "Authorization" to "x-authorization"
     }
     
     if (cookies) {
@@ -264,6 +268,8 @@ async function handleTeeTimesRequest(request) {
       method: "GET",
       headers: headers
     });
+
+#############
     
     console.log(`Received tee times response with status: ${response.status}`);
     
