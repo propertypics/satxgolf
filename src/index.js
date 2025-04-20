@@ -9,6 +9,45 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
+
+// Add this to your worker code
+// Handle cookie validation requests
+async function handleValidateCookiesRequest(request) {
+  try {
+    // Get cookies from the request headers
+    const cookies = request.headers.get("X-ForeUp-Cookies");
+    
+    if (!cookies) {
+      return jsonResponse({ valid: false, reason: "No cookies provided" });
+    }
+    
+    console.log(`Validating cookies: ${cookies.substring(0, 20)}...`);
+    
+    // Try to make a simple request to ForeUp to check if cookies are valid
+    const testUrl = "https://foreupsoftware.com/index.php/api/booking/users/user";
+    
+    const response = await fetch(testUrl, {
+      headers: {
+        "Cookie": cookies,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      }
+    });
+    
+    console.log(`Cookie validation response status: ${response.status}`);
+    
+    // Check if we got a successful response
+    if (response.ok) {
+      return jsonResponse({ valid: true });
+    } else {
+      return jsonResponse({ valid: false, reason: `Server returned ${response.status}` });
+    }
+  } catch (error) {
+    console.error(`Cookie validation error: ${error.message}`);
+    return errorResponse(`Failed to validate cookies: ${error.message}`);
+  }
+}
+
+
 // Handle OPTIONS requests (CORS preflight)
 function handleOptions(request) {
   return new Response(null, {
@@ -71,13 +110,17 @@ async function handleRequest(request) {
     if (path === "/api/courses") {
       return await handleCoursesRequest();
     }
+    // Handle cookie validation requests (new endpoint)
+    if (path === "/api/validate-cookies") {
+      return await handleValidateCookiesRequest(request);
+    }
     
     // Health check endpoint
     if (path === "/health" || path === "/") {
       return jsonResponse({ 
         status: "ok", 
         message: "ForeUp API Proxy is running", 
-        version: "1.0.1" 
+        version: "1.0.2" 
       });
     }
     

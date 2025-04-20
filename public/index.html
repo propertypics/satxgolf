@@ -427,39 +427,44 @@
         clearDebug.addEventListener('click', function() {
             debugLogs.textContent = '';
         });
-        
-        // Function to check if cookies are valid by making a test request
-        function checkCookiesValidity() {
-            const cookies = localStorage.getItem('foreup_cookies');
-            if (!cookies) {
-                return Promise.resolve(false);
-            }
-            
-            log("Checking if cookies are valid...");
-            
-            // Make a request to get courses - if successful, cookies are working
-            return fetch(`${API_BASE_URL}/api/courses`, {
-                headers: {
-                    'X-ForeUp-Cookies': cookies
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    return response.json().then(data => {
-                        // Check if data looks valid
-                        const isValid = Array.isArray(data) && data.length > 0;
-                        log(`Cookie validity check result: ${isValid ? 'Valid' : 'Invalid'}`);
-                        return isValid;
-                    });
-                }
-                log("Cookie validity check failed - response not OK");
-                return false;
-            })
-            .catch(error => {
-                log(`Cookie validity check error: ${error.message}`);
-                return false;
-            });
+  
+        // Function to check if cookies are valid
+function checkCookiesValidity() {
+    const cookies = localStorage.getItem('foreup_cookies');
+    if (!cookies) {
+        return Promise.resolve(false);
+    }
+    
+    log("Checking if cookies are valid...");
+    
+    // Use the new worker endpoint to validate cookies
+    return fetch(`${API_BASE_URL}/api/validate-cookies`, {
+        headers: {
+            'X-ForeUp-Cookies': cookies
         }
+    })
+    .then(response => {
+        if (!response.ok) {
+            log("Cookie validation request failed");
+            return false;
+        }
+        
+        return response.json().then(data => {
+            const isValid = data.valid === true;
+            log(`Cookie validity check result: ${isValid ? 'Valid' : 'Invalid'}`);
+            if (!isValid && data.reason) {
+                log(`Reason: ${data.reason}`);
+            }
+            return isValid;
+        });
+    })
+    .catch(error => {
+        log(`Cookie validation error: ${error.message}`);
+        return false;
+    });
+}
+     
+        
         
         // Function to show the refresh required UI
         function showRefreshRequiredUI() {
