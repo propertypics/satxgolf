@@ -1,4 +1,4 @@
-// ForeUp API Proxy - Cloudflare Worker (Version 1.0.4)
+// ForeUp API Proxy - Cloudflare Worker (Version 1.0.5)
 // This worker handles API requests to the ForeUp system, avoiding CORS issues
 
 // Define DEBUG mode
@@ -98,7 +98,7 @@ async function handleRequest(request) {
       return jsonResponse({ 
         status: "ok", 
         message: "ForeUp API Proxy is running", 
-        version: "1.0.4",
+        version: "1.0.5",
         debug: DEBUG
       });
     }
@@ -136,25 +136,28 @@ async function handleLoginRequest(request) {
     const loginUrl = "https://foreupsoftware.com/index.php/api/booking/users/login";
     debug(`ForeUp login URL: ${loginUrl}`);
     
-    // Convert the request data to URLSearchParams
+    // Create form data with all required parameters
     const formData = new URLSearchParams();
     formData.append("username", requestData.username);
     formData.append("password", requestData.password);
+    formData.append("booking_class_id", ""); // Empty but required
+    formData.append("api_key", "no_limits");
+    formData.append("course_id", "20106"); // Default course ID - Northern Hills
     
-    // Updated headers based on the ForeUp site headers
+    // Use the exact headers from the successful curl request
     const headers = {
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       "Accept": "application/json, text/javascript, */*; q=0.01",
       "api-key": "no_limits",
       "x-fu-golfer-location": "foreup",
       "x-requested-with": "XMLHttpRequest",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
       "Origin": "https://foreupsoftware.com",
-      "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
+      "Referer": "https://foreupsoftware.com/index.php/booking/20106/3567",
+      "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36"
     };
     
     debug("Login request headers", headers);
-    debug("Login request body", formData.toString());
+    debug("Login request form data", formData.toString());
     
     // Make the request to ForeUp
     debug("Sending login request to ForeUp");
@@ -163,9 +166,9 @@ async function handleLoginRequest(request) {
       response = await fetch(loginUrl, {
         method: "POST",
         headers: headers,
-        body: formData,
-        redirect: 'follow'
+        body: formData
       });
+      
       debug(`Received response from ForeUp with status: ${response.status}`);
       debug("Response headers", Object.fromEntries(response.headers.entries()));
     } catch (error) {
@@ -201,24 +204,11 @@ async function handleLoginRequest(request) {
           debug("Added cookies to response data");
         }
         
-        // Explicitly log JWT token if present
+        // Check if JWT token is in the response
         if (data.jwt) {
           debug("JWT token found in response", data.jwt.substring(0, 20) + "...");
         } else {
           debug("No JWT token found in response");
-        }
-        
-        // Handle the "Refresh required" error
-        if (data.success === false && data.msg === "Refresh required") {
-          debug("Received 'Refresh required' message");
-          return jsonResponse({
-            success: false,
-            msg: "Refresh required",
-            openNewWindow: true,
-            forceRedirect: true,
-            redirectUrl: "https://foreupsoftware.com/index.php/booking/20103/3564#/login",
-            cookies: cookies || null
-          });
         }
       } else {
         debug("Empty response from ForeUp API");
@@ -242,8 +232,8 @@ async function handleTeeTimesRequest(request) {
   try {
     // Parse the incoming request for course ID, date, etc.
     const url = new URL(request.url);
-    const courseId = url.searchParams.get("courseId") || "20103";
-    const facilityId = url.searchParams.get("facilityId") || "3564";
+    const courseId = url.searchParams.get("courseId") || "20106";
+    const facilityId = url.searchParams.get("facilityId") || "3567";
     const date = url.searchParams.get("date") || getFormattedDate();
     
     debug(`Fetching tee times for course ${courseId}, date ${date}`);
@@ -266,7 +256,7 @@ async function handleTeeTimesRequest(request) {
     // Build headers for ForeUp request
     const headers = {
       "Accept": "application/json, text/javascript, */*; q=0.01",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+      "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
       "Origin": "https://foreupsoftware.com",
       "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`,
       "api-key": "no_limits", 
@@ -356,13 +346,13 @@ async function handleCoursesRequest(request) {
       const testUrl = "https://foreupsoftware.com/index.php/api/booking/users/user";
       
       const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "api-key": "no_limits",
         "x-fu-golfer-location": "foreup",
         "x-requested-with": "XMLHttpRequest",
         "Origin": "https://foreupsoftware.com",
-        "Referer": "https://foreupsoftware.com/index.php/booking/20103/3564"
+        "Referer": "https://foreupsoftware.com/index.php/booking/20106/3567"
       };
       
       if (cookies) {
