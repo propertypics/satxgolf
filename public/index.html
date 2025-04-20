@@ -492,43 +492,46 @@
                 
                 return response.json();
             })
-            .then(data => {
-                log(`Login response parsed as JSON:`, data);
-                
-                if (data.error) {
-                    throw new Error(data.message || 'Unknown error');
-                }
-                
-                // Handle "Refresh required" from ForeUp
-                if (data.success === false && data.msg === "Refresh required") {
-                    loginForm.style.display = 'block';
-                    loadingIndicator.style.display = 'none';
-                    
-                    // Clear existing message content
-                    loginMessage.innerHTML = '';
-                    loginMessage.className = 'status-message warning';
-                    
-                    // Add message and button
-                    const msgText = document.createElement('p');
-                    msgText.textContent = 'ForeUp requires you to log in through their website first.';
-                    loginMessage.appendChild(msgText);
-                    
-                    const redirectBtn = document.createElement('button');
-                    redirectBtn.textContent = 'Log in on ForeUp';
-                    redirectBtn.style.marginTop = '10px';
-                    redirectBtn.onclick = function() {
-                        // Open ForeUp login in a new window
-                        const loginWindow = window.open('https://foreupsoftware.com/index.php/booking/20103/3564#/login', '_blank');
-                        
-                        // Add a message about returning after login
-                        const returnMsg = document.createElement('p'); 
-                        returnMsg.textContent = 'After logging in on ForeUp, return here and try again.';
-                        returnMsg.style.marginTop = '10px';
-                        loginMessage.appendChild(returnMsg);
-                    };
-                    loginMessage.appendChild(redirectBtn);
-                    return;
-                }
+ 
+
+            // This part of the loginUser function needs to be updated
+.then(data => {
+    log(`Login response parsed as JSON:`, data);
+    
+    if (data.error) {
+        throw new Error(data.message || 'Unknown error');
+    }
+    
+    // Handle "Refresh required" from ForeUp
+    if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
+        loginForm.style.display = 'block';
+        loadingIndicator.style.display = 'none';
+        
+        // Clear existing message content
+        loginMessage.innerHTML = '';
+        loginMessage.className = 'status-message warning';
+        
+        // Add message and button
+        const msgText = document.createElement('p');
+        msgText.textContent = 'ForeUp requires you to log in through their website first.';
+        loginMessage.appendChild(msgText);
+        
+        const redirectBtn = document.createElement('button');
+        redirectBtn.textContent = 'Log in on ForeUp';
+        redirectBtn.style.marginTop = '10px';
+        redirectBtn.onclick = function() {
+            // Open ForeUp login in a new window
+            window.open('https://foreupsoftware.com/index.php/booking/20103/3564#/login', '_blank');
+            
+            // Add a message about returning after login
+            const returnMsg = document.createElement('p'); 
+            returnMsg.textContent = 'After logging in on ForeUp, return here and try again.';
+            returnMsg.style.marginTop = '10px';
+            loginMessage.appendChild(returnMsg);
+        };
+        loginMessage.appendChild(redirectBtn);
+        return;
+    }
                 
                 if (data.success === false) {
                     throw new Error(data.msg || 'Login failed');
