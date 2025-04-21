@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev";
-const APP_VERSION = "1.0.7";
+const APP_VERSION = "1.0.9";
 
 const courseGrid = document.getElementById('courseGrid');
 const loadingIndicator = document.getElementById('loadingIndicator');
@@ -47,14 +47,14 @@ function checkLogin() {
     const storedName = localStorage.getItem('user_name');
     
     if (token) {
-        if (storedName) {
+        if (storedName && userName) {
             userName.textContent = storedName;
         }
-        userInfo.style.display = 'flex';
-        statsLink.style.display = 'block';
+        if (userInfo) userInfo.style.display = 'flex';
+        if (statsLink) statsLink.style.display = 'block';
         return true;
     }
-    statsLink.style.display = 'none';
+    if (statsLink) statsLink.style.display = 'none';
     return false;
 }
 
@@ -64,7 +64,7 @@ function loadCourses() {
         console.warn('courseGrid element not found, skipping course load');
         return;
     }
-    loadingIndicator.style.display = 'block';
+    if (loadingIndicator) loadingIndicator.style.display = 'block';
     courseGrid.innerHTML = '';
     
     fetch(`${API_BASE_URL}/api/courses`)
@@ -75,11 +75,11 @@ function loadCourses() {
             } else {
                 console.error('renderCourses function not found');
             }
-            loadingIndicator.style.display = 'none';
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
         })
         .catch(error => {
             console.error('Error loading courses:', error);
-            loadingIndicator.style.display = 'none';
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
             
             courseGrid.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
@@ -123,16 +123,22 @@ function renderCourses(courses) {
 }
 
 function showLoginModal() {
-    loginModal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    if (loginModal) {
+        loginModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 function hideLoginModal() {
-    loginModal.classList.remove('active');
-    document.body.style.overflow = '';
+    if (loginModal) {
+        loginModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
 function showMembershipModal() {
+    if (!membershipModal || !membershipOptions) return;
+    
     membershipOptions.innerHTML = '';
     let selectedOption = null;
     
@@ -152,41 +158,33 @@ function showMembershipModal() {
             selectedOption = option;
             selectedMembership = membership;
             
-            proceedToBooking.disabled = false;
+            if (proceedToBooking) proceedToBooking.disabled = false;
         });
         
         membershipOptions.appendChild(option);
     });
     
-    proceedToBooking.disabled = true;
+    if (proceedToBooking) proceedToBooking.disabled = true;
     
     membershipModal.classList.add('active');
     document.body.style.overflow = 'hidden';
 }
 
 function hideMembershipModal() {
-    membershipModal.classList.remove('active');
-    document.body.style.overflow = '';
+    if (membershipModal) {
+        membershipModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 }
 
-loginForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    
-    if (!usernameInput.value || !passwordInput.value) {
-        showMessage('Please enter both username and password.', 'error');
-        return;
-    }
-    
-    loginUser(usernameInput.value, passwordInput.value);
-});
-
 function loginUser(username, password) {
+    if (!loginMessage || !loginForm) return;
+    
     loginMessage.style.display = 'none';
     
     const loginBtn = document.querySelector('.login-btn');
+    if (!loginBtn) return;
+    
     const originalText = loginBtn.textContent;
     loginBtn.textContent = 'Signing in...';
     loginBtn.disabled = true;
@@ -231,13 +229,13 @@ function loginUser(username, password) {
             if (data.first_name && data.last_name) {
                 const fullName = `${data.first_name} ${data.last_name}`;
                 localStorage.setItem('user_name', fullName);
-                userName.textContent = fullName;
+                if (userName) userName.textContent = fullName;
             }
             
             localStorage.setItem('login_data', JSON.stringify(data));
             
-            userInfo.style.display = 'flex';
-            statsLink.style.display = 'block';
+            if (userInfo) userInfo.style.display = 'flex';
+            if (statsLink) statsLink.style.display = 'block';
             
             hideLoginModal();
             
@@ -257,76 +255,11 @@ function loginUser(username, password) {
 }
 
 function showMessage(message, type) {
-    loginMessage.textContent = message;
-    loginMessage.className = `status-message ${type}`;
-    loginMessage.style.display = 'block';
-}
-
-proceedToBooking.addEventListener('click', function() {
-    if (!selectedCourse || !selectedMembership) {
-        return;
+    if (loginMessage) {
+        loginMessage.textContent = message;
+        loginMessage.className = `status-message ${type}`;
+        loginMessage.style.display = 'block';
     }
-    
-    hideMembershipModal();
-    
-    const notification = document.createElement('div');
-    notification.style.position = 'fixed';
-    notification.style.top = '50%';
-    notification.style.left = '50%';
-    notification.style.transform = 'translate(-50%, -50%)';
-    notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
-    notification.style.color = 'white';
-    notification.style.padding = '20px';
-    notification.style.borderRadius = '8px';
-    notification.style.zIndex = '2000';
-    notification.style.textAlign = 'center';
-    notification.style.maxWidth = '90%';
-    notification.style.width = '400px';
-    
-    notification.innerHTML = `
-        <h3 style="margin-top: 0;">Opening ForeUp Website</h3>
-        <p>You'll now be redirected to the ForeUp booking system.</p>
-        <p>You may need to log in again on the ForeUp site.</p>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    const foreupUrl = `https://foreupsoftware.com/index.php/booking/${selectedCourse.courseId}/${selectedCourse.facilityId}#teetimes`;
-    
-    setTimeout(() => {
-        window.open(foreupUrl, '_blank');
-        document.body.removeChild(notification);
-    }, 2500);
-});
-
-logoutBtn.addEventListener('click', function() {
-    localStorage.removeItem('jwt_token');
-    localStorage.removeItem('user_name');
-    localStorage.removeItem('foreup_cookies');
-    localStorage.removeItem('login_data');
-    userInfo.style.display = 'none';
-    statsLink.style.display = 'none';
-    
-    location.href = 'index3.html';
-});
-
-if (closeLoginModal) closeLoginModal.addEventListener('click', hideLoginModal);
-if (closeMembershipModal) closeMembershipModal.addEventListener('click', hideMembershipModal);
-
-if (loginModal) {
-    loginModal.addEventListener('click', function(e) {
-        if (e.target === loginModal) {
-            hideLoginModal();
-        }
-    });
-}
-
-if (membershipModal) {
-    membershipModal.addEventListener('click', function(e) {
-        if (e.target === membershipModal) {
-            hideMembershipModal();
-        }
-    });
 }
 
 function initializeStatsPage() {
@@ -337,6 +270,11 @@ function initializeStatsPage() {
     const punchInfo = document.getElementById('punchInfo');
     const punchCard = document.getElementById('punchCard');
     const recentActivity = document.getElementById('recentActivity');
+    
+    if (!loadingIndicator || !statsContainer || !noDataMessage || !membershipInfo || !punchInfo || !punchCard || !recentActivity) {
+        console.error('Missing required DOM elements for stats page');
+        return;
+    }
     
     if (!checkLogin()) {
         loadingIndicator.style.display = 'none';
@@ -507,12 +445,97 @@ function formatDate(dateStr) {
 document.addEventListener('DOMContentLoaded', function() {
     checkLogin();
     
+    // Bind event listeners for index3.html elements
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            if (!usernameInput.value || !passwordInput.value) {
+                showMessage('Please enter both username and password.', 'error');
+                return;
+            }
+            loginUser(usernameInput.value, passwordInput.value);
+        });
+    }
+    
+    if (closeLoginModal) {
+        closeLoginModal.addEventListener('click', hideLoginModal);
+    }
+    
+    if (loginModal) {
+        loginModal.addEventListener('click', function(e) {
+            if (e.target === loginModal) {
+                hideLoginModal();
+            }
+        });
+    }
+    
+    if (closeMembershipModal) {
+        closeMembershipModal.addEventListener('click', hideMembershipModal);
+    }
+    
+    if (membershipModal) {
+        membershipModal.addEventListener('click', function(e) {
+            if (e.target === membershipModal) {
+                hideMembershipModal();
+            }
+        });
+    }
+    
+    if (proceedToBooking) {
+        proceedToBooking.addEventListener('click', function() {
+            if (!selectedCourse || !selectedMembership) {
+                return;
+            }
+            hideMembershipModal();
+            const notification = document.createElement('div');
+            notification.style.position = 'fixed';
+            notification.style.top = '50%';
+            notification.style.left = '50%';
+            notification.style.transform = 'translate(-50%, -50%)';
+            notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
+            notification.style.color = 'white';
+            notification.style.padding = '20px';
+            notification.style.borderRadius = '8px';
+            notification.style.zIndex = '2000';
+            notification.style.textAlign = 'center';
+            notification.style.maxWidth = '90%';
+            notification.style.width = '400px';
+            notification.innerHTML = `
+                <h3 style="margin-top: 0;">Opening ForeUp Website</h3>
+                <p>You'll now be redirected to the ForeUp booking system.</p>
+                <p>You may need to log in again on the ForeUp site.</p>
+            `;
+            document.body.appendChild(notification);
+            const foreupUrl = `https://foreupsoftware.com/index.php/booking/${selectedCourse.courseId}/${selectedCourse.facilityId}#teetimes`;
+            setTimeout(() => {
+                window.open(foreupUrl, '_blank');
+                document.body.removeChild(notification);
+            }, 2500);
+        });
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('foreup_cookies');
+            localStorage.removeItem('login_data');
+            if (userInfo) userInfo.style.display = 'none';
+            if (statsLink) statsLink.style.display = 'none';
+            location.href = 'index3.html';
+        });
+    }
+    
+    // Page-specific initialization
     if (document.getElementById('courseGrid')) {
         loadCourses();
     } else if (document.getElementById('statsContainer')) {
         initializeStatsPage();
     }
     
+    // Health check
     fetch(`${API_BASE_URL}/health`)
         .then(response => response.json())
         .then(data => {
