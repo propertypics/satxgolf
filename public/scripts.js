@@ -307,7 +307,7 @@ logoutBtn.addEventListener('click', function() {
     userInfo.style.display = 'none';
     statsLink.style.display = 'none';
     
-    location.reload();
+    location.href = 'index3.html';
 });
 
 if (closeLoginModal) closeLoginModal.addEventListener('click', hideLoginModal);
