@@ -64,22 +64,27 @@ function checkLogin() {
     return false;
 }
 
-// Load courses
 function loadCourses() {
+    console.log('loadCourses called on page:', window.location.pathname);
+    if (!courseGrid) {
+        console.warn('courseGrid element not found, skipping course load');
+        return;
+    }
     loadingIndicator.style.display = 'block';
     courseGrid.innerHTML = '';
-    
     fetch(`${API_BASE_URL}/api/courses`)
         .then(response => response.json())
         .then(courses => {
-            renderCourses(courses);
+            if (typeof renderCourses === 'function') {
+                renderCourses(courses);
+            } else {
+                console.error('renderCourses function not found');
+            }
             loadingIndicator.style.display = 'none';
         })
         .catch(error => {
             console.error('Error loading courses:', error);
             loadingIndicator.style.display = 'none';
-            
-            // Show error message
             courseGrid.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 2rem;">
                     <h3>Error Loading Courses</h3>
