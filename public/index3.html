@@ -813,10 +813,9 @@
             hideMembershipModal();
             
             // This is where we redirect to ForeUp with the correct URL
-            const foreupUrl = `https://foreupsoftware.com/index.php/booking/${selectedCourse.courseId}/${selectedCourse.facilityId}#teetimes`;
             
-            // Open ForeUp in a new tab
-            window.open(foreupUrl, '_blank');
+           window.location.href = `redirect.html?courseId=${selectedCourse.courseId}&facilityId=${selectedCourse.facilityId}`;
+
         });
         
         // Handle logout
