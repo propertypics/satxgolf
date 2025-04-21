@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting to ForeUp...</title>
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #2E7D32;
+            margin-bottom: 20px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #2E7D32;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #757575;
+        }
+        
+        .debug-panel {
+            margin-top: 30px;
+            text-align: left;
+            width: 100%;
+            max-width: 600px;
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .debug-panel pre {
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .debug-toggle {
+            background: none;
+            border: none;
+            color: #2E7D32;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>Redirecting to ForeUp</h1>
+        <p>Please wait while we prepare your booking session...</p>
+        <div class="footer">
+            If you are not redirected automatically, <a href="#" id="redirectLink">click here</a>.
+        </div>
+        <button class="debug-toggle" id="debugToggle">Show Debug Info</button>
+    </div>
+    
+    <div class="debug-panel" id="debugPanel">
+        <h3>Debug Information</h3>
+        <div>
+            <strong>Status:</strong> <span id="debugStatus">Initializing...</span>
+        </div>
+        <div>
+            <strong>Cookies Available:</strong> <span id="debugCookies">Checking...</span>
+        </div>
+        <div>
+            <strong>JWT Available:</strong> <span id="debugJwt">Checking...</span>
+        </div>
+        <div>
+            <strong>Target URL:</strong> <span id="debugUrl">Loading...</span>
+        </div>
+        <h4>Cookie Details:</h4>
+        <pre id="debugCookieDetails">Loading...</pre>
+    </div>
+    
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const courseId = urlParams.get('courseId');
+        const facilityId = urlParams.get('facilityId');
+        
+        // Debug elements
+        const debugToggle = document.getElementById('debugToggle');
+        const debugPanel = document.getElementById('debugPanel');
+        const debugStatus = document.getElementById('debugStatus');
+        const debugCookies = document.getElementById('debugCookies');
+        const debugJwt = document.getElementById('debugJwt');
+        const debugUrl = document.getElementById('debugUrl');
+        const debugCookieDetails = document.getElementById('debugCookieDetails');
+        const redirectLink = document.getElementById('redirectLink');
+        
+        // Show/hide debug panel
+        debugToggle.addEventListener('click', function() {
+            debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+        });
+        
+        // Main function to handle redirection
+        function handleRedirect() {
+            const foreupUrl = `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}#teetimes`;
+            debugUrl.textContent = foreupUrl;
+            redirectLink.href = foreupUrl;
+            
+            // Check for authentication
+            const jwt = localStorage.getItem('jwt_token');
+            const cookies = localStorage.getItem('foreup_cookies');
+            
+            debugJwt.textContent = jwt ? 'Yes' : 'No';
+            debugCookies.textContent = cookies ? 'Yes' : 'No';
+            debugCookieDetails.textContent = cookies || 'None';
+            
+            if (!jwt && !cookies) {
+                debugStatus.textContent = 'No authentication found, redirecting anyway...';
+                setTimeout(() => {
+                    window.location.href = foreupUrl;
+                }, 2000);
+                return;
+            }
+            
+            // Try to establish authentication via a hidden iframe
+            debugStatus.textContent = 'Attempting to establish authentication...';
+            
+            // Create a hidden iframe to establish cookies
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = 'https://foreupsoftware.com';
+            document.body.appendChild(iframe);
+            
+            // Set cookies via the iframe (theoretical approach)
+            iframe.onload = function() {
+                debugStatus.textContent = 'Iframe loaded, attempting to set cookies...';
+                
+                try {
+                    // This might fail due to cross-origin restrictions
+                    if (cookies) {
+                        document.cookie = cookies;
+                        debugStatus.textContent = 'Cookies set, redirecting...';
+                    }
+                } catch (e) {
+                    debugStatus.textContent = 'Failed to set cookies: ' + e.message;
+                }
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = foreupUrl;
+                }, 3000);
+            };
+            
+            // Fallback in case iframe approach fails
+            setTimeout(() => {
+                debugStatus.textContent = 'Timeout reached, redirecting anyway...';
+                window.location.href = foreupUrl;
+            }, 5000);
+        }
+        
+        // Run the redirection logic
+        window.onload = handleRedirect;
+    </script>
+</body>
+</html>
