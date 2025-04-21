@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Stats - SATX Golf</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 18V2"/>
+                    <path d="M8 6h8"/>
+                    <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                    <path d="M10 14v7"/>
+                    <path d="M14 14v7"/>
+                    <path d="M6 18h12"/>
+                    <path d="M6 22h12"/>
+                </svg>
+                <span>SATX Golf</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Courses</a>
+                <a href="mystats.html" class="active">My Stats</a>
+            </div>
+            <div class="user-info" id="userInfo">
+                <span class="user-name" id="userName">User</span>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
+            </div>
+        </div>
+    </header>
+    
+    <main class="container">
+        <h2 class="section-title">My Golf Stats</h2>
+        
+        <!-- Loading Indicator -->
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Loading your stats...</p>
+        </div>
+        
+        <div class="stats-container" id="statsContainer" style="display: none;">
+            <!-- Membership Info Card -->
+            <div class="stats-card">
+                <h3>Membership Info</h3>
+                <div id="membershipInfo">
+                    <!-- Membership data will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Punch Usage Card -->
+            <div class="stats-card" id="punchCard">
+                <h3>Punch Card Usage</h3>
+                <div id="punchInfo">
+                    <!-- Punch data will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Recent Activity Card -->
+            <div class="stats-card">
+                <h3>Recent Activity</h3>
+                <div id="recentActivity">
+                    <!-- Recent activity will be inserted here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- No Data Message -->
+        <div class="no-data" id="noDataMessage" style="display: none;">
+            <h3>No Stats Available</h3>
+            <p>Please log in to view your golf stats.</p>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 SATX Golf - Alamo City Golf Trail</p>
+        </div>
+    </footer>
+    
+    <!-- Version Tag -->
+    <div class="version-tag">v1.0.7</div>
+    
+    <script src="scripts.js"></script>
+    <script>
+        // Stats page specific code
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const statsContainer = document.getElementById('statsContainer');
+            const noDataMessage = document.getElementById('noDataMessage');
+            const membershipInfo = document.getElementById('membershipInfo');
+            const punchInfo = document.getElementById('punchInfo');
+            const punchCard = document.getElementById('punchCard');
+            const recentActivity = document.getElementById('recentActivity');
+            
+            // Check if logged in
+            if (!checkLogin()) {
+                loadingIndicator.style.display = 'none';
+                noDataMessage.style.display = 'block';
+                return;
+            }
+            
+            // Get login data from localStorage
+            const loginDataStr = localStorage.getItem('login_data');
+            
+            if (!loginDataStr) {
+                loadingIndicator.style.display = 'none';
+                noDataMessage.style.display = 'block';
+                noDataMessage.innerHTML = `
+                    <h3>No Stats Available</h3>
+                    <p>No golf data found. Try logging in again.</p>
+                `;
+                return;
+            }
+            
+            try {
+                const loginData = JSON.parse(loginDataStr);
+                
+                // Extract user information
+                const userData = {
+                    name: `${loginData.first_name} ${loginData.last_name}`,
+                    email: loginData.email,
+                    phone: loginData.phone_number || loginData.cell_phone_number || 'N/A'
+                };
+                
+                // Extract membership information
+                let membershipData = { name: 'No Membership', expires: 'N/A' };
+                let hasPunchPass = false;
+                let punchData = null;
+                let recentRounds = [];
+                
+                // Check if passes exist
+                if (loginData.passes) {
+                    // Find the first active pass
+                    const passIds = Object.keys(loginData.passes);
+                    
+                    if (passIds.length > 0) {
+                        const passId = passIds[0]; // Use the first pass for simplicity
+                        const pass = loginData.passes[passId];
+                        
+                        membershipData = {
+                            name: pass.name || 'Unknown Membership',
+                            expires: formatDate(pass.end_date) || 'N/A',
+                            purchased: formatDate(pass.date_purchased) || 'N/A'
+                        };
+                        
+                        // Check if this pass has punch rules
+                        if (pass.rules && pass.rules.length > 0) {
+                            // Look for punch rule (rule_number: 2)
+                            const punchRule = pass.rules.find(rule => rule.rule_number === 2);
+                            
+                            if (punchRule) {
+                                hasPunchPass = true;
+                                
+                                // Count punches used
+                                let punchesUsed = 0;
+                                const punchClassId = punchRule.price_class_id;
+                                
+                                if (pass.uses && Array.isArray(pass.uses)) {
+                                    // Count uses with rule_number: 2 and matching price_class_id
+                                    punchesUsed = pass.uses.filter(use => 
+                                        use.rule_number === "2" && use.price_class_id === String(punchClassId)
+                                    ).length;
+                                    
+                                    // Extract recent rounds
+                                    recentRounds = pass.uses.map(use => {
+                                        const isPunch = use.rule_number === "2" && use.price_class_id === String(punchClassId);
+                                        // Find teesheet ID to determine course
+                                        let courseName = "Unknown Course";
+                                        const teesheetId = use.teesheet_id;
+                                        
+                                        // Map teesheet IDs to course names (hardcoded based on data)
+                                        switch(teesheetId) {
+                                            case "3564": courseName = "Brackenridge Park"; break;
+                                            case "3565": courseName = "Cedar Creek"; break;
+                                            case "3566": courseName = "Mission del Lago"; break;
+                                            case "3567": courseName = "Northern Hills"; break;
+                                            case "3568": courseName = "Olmos Basin"; break;
+                                            case "3569": courseName = "Riverside Championship"; break;
+                                            case "3570": courseName = "Riverside Teddy Bear"; break;
+                                            case "3572": courseName = "San Pedro Par 3"; break;
+                                            default: courseName = "Unknown Course";
+                                        }
+                                        
+                                        return {
+                                            date: formatDate(use.date),
+                                            course: courseName,
+                                            isPunch: isPunch
+                                        };
+                                    }).sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date, newest first
+                                }
+                                
+                                punchData = {
+                                    used: punchesUsed,
+                                    total: 10, // Hardcoded based on your description
+                                    percent: (punchesUsed / 10) * 100
+                                };
+                            }
+                        }
+                    }
+                }
+                
+                // Render membership info
+                membershipInfo.innerHTML = `
+                    <div class="stat-item">
+                        <span class="stat-label">Name:</span>
+                        <span>${userData.name}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Membership:</span>
+                        <span>${membershipData.name}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Expires:</span>
+                        <span>${membershipData.expires}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Purchase Date:</span>
+                        <span>${membershipData.purchased}</span>
+                    </div>
+                `;
+                
+                // Render punch info if available
+                if (hasPunchPass && punchData) {
+                    punchInfo.innerHTML = `
+                        <div class="punch-container">
+                            <span>${punchData.used}</span>
+                            <div class="punch-bar">
+                                <div class="punch-progress" style="width: ${punchData.percent}%"></div>
+                                <div class="punch-text">${punchData.used} of ${punchData.total} Used</div>
+                            </div>
+                            <span>${punchData.total}</span>
+                        </div>
+                    `;
+                } else {
+                    punchCard.style.display = 'none';
+                }
+                
+                // Render recent activity
+                if (recentRounds.length > 0) {
+                    // Show only the 5 most recent rounds
+                    const recentFiveRounds = recentRounds.slice(0, 5);
+                    
+                    recentActivity.innerHTML = `
+                        <ul class="recent-list">
+                            ${recentFiveRounds.map(round => `
+                                <li class="recent-item ${round.isPunch ? 'punch' : ''}">
+                                    <div>
+                                        <div class="course-name">${round.course}</div>
+                                        <div class="date">${round.date}</div>
+                                    </div>
+                                    <span class="badge ${round.isPunch ? 'badge-punch' : 'badge-paid'}">
+                                        ${round.isPunch ? 'Punch' : 'Paid'}
+                                    </span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
+                } else {
+                    recentActivity.innerHTML = '<p>No recent activity found.</p>';
+                }
+                
+                // Show the stats container
+                loadingIndicator.style.display = 'none';
+                statsContainer.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error parsing login data:', error);
+                loadingIndicator.style.display = 'none';
+                noDataMessage.style.display = 'block';
+                noDataMessage.innerHTML = `
+                    <h3>Error Loading Stats</h3>
+                    <p>There was a problem loading your golf data.</p>
+                `;
+            }
+        });
+        
+        // Helper function to format dates
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            } catch (e) {
+                return dateStr;
+            }
+        }
+    </script>
+</body>
+</html>
