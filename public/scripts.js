@@ -112,7 +112,46 @@ function renderCourses(courses) {
         bookBtn.addEventListener('click', () => {
             selectedCourse = course;
             if (checkLogin()) {
-                showMembershipModal();
+                
+                //showMembershipModal();
+                // Instead, just set a default membership
+                
+                selectedMembership = membershipTypes[0]; // 
+                // Show a notification that we're ready for the next step
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
+        notification.style.color = 'white';
+        notification.style.padding = '20px';
+        notification.style.borderRadius = '8px';
+        notification.style.zIndex = '2000';
+        notification.style.textAlign = 'center';
+        notification.style.maxWidth = '90%';
+        notification.style.width = '400px';
+        notification.innerHTML = `
+            <h3 style="margin-top: 0;">Course Selected</h3>
+            <p>You've selected ${course.name}.</p>
+            <p>In the future, we'll implement booking functionality here.</p>
+            <button id="closeNotification" style="background-color: white; color: #2e7d32; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer;">Close</button>
+        `;
+        document.body.appendChild(notification);
+        
+        // Add event listener to close button
+        const closeButton = notification.querySelector('#closeNotification');
+        closeButton.addEventListener('click', () => {
+            document.body.removeChild(notification);
+        });
+        
+        // Auto-remove notification after 5 seconds
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 5000);
+               
             } else {
                 showLoginModal();
             }
@@ -136,39 +175,39 @@ function hideLoginModal() {
     }
 }
 
-function showMembershipModal() {
-    if (!membershipModal || !membershipOptions) return;
+//function showMembershipModal() {
+//    if (!membershipModal || !membershipOptions) return;
     
-    membershipOptions.innerHTML = '';
-    let selectedOption = null;
+//    membershipOptions.innerHTML = '';
+//    let selectedOption = null;
     
-    membershipTypes.forEach(membership => {
-        const option = document.createElement('div');
-        option.className = 'membership-option';
-        option.innerHTML = `
-            <div class="membership-name">${membership.name}</div>
-        `;
+//    membershipTypes.forEach(membership => {
+//        const option = document.createElement('div');
+//        option.className = 'membership-option';
+//        option.innerHTML = `
+//            <div class="membership-name">${membership.name}</div>
+//        `;
         
-        option.addEventListener('click', () => {
-            if (selectedOption) {
-                selectedOption.classList.remove('selected');
-            }
+//        option.addEventListener('click', () => {
+//            if (selectedOption) {
+//                selectedOption.classList.remove('selected');
+//            }
             
-            option.classList.add('selected');
-            selectedOption = option;
+//            option.classList.add('selected');
+//            selectedOption = option;
             selectedMembership = membership;
             
-            if (proceedToBooking) proceedToBooking.disabled = false;
-        });
+//            if (proceedToBooking) proceedToBooking.disabled = false;
+//        });
         
-        membershipOptions.appendChild(option);
-    });
+//        membershipOptions.appendChild(option);
+//    });
     
-    if (proceedToBooking) proceedToBooking.disabled = true;
+//    if (proceedToBooking) proceedToBooking.disabled = true;
     
-    membershipModal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
+//    membershipModal.classList.add('active');
+//    document.body.style.overflow = 'hidden';
+//}
 
 function hideMembershipModal() {
     if (membershipModal) {
@@ -240,7 +279,9 @@ function loginUser(username, password) {
             hideLoginModal();
             
             if (selectedCourse) {
-                showMembershipModal();
+                //showMembershipModal();
+                // Instead, just set a default membership
+                selectedMembership = membershipTypes[0]; // Default to "Public - No Booking Fees"
             }
         } else {
             showMessage('No authentication token received', 'error');
