@@ -389,134 +389,175 @@ function selectDate(year, month, day) {
 }
 
 // Function to fetch tee times from API
+// Modified fetchTeeTimes function with better debugging
 function fetchTeeTimes(courseId, facilityId, dateStr) {
     console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
     
-    // Show loading indicator
+    // Show loading indicators
     if (teeTimesLoading) teeTimesLoading.style.display = 'block';
     if (teeTimesList) teeTimesList.style.display = 'none';
     if (noTeeTimes) noTeeTimes.style.display = 'none';
     
-    // Force booking class to match the working curl example
-    const bookingClassId = "50530"; // Trailpass Plus
+    // Try a different date (1 day earlier) to see if that works
+    const dateObj = new Date(dateStr.replace(/-/g, '/'));
+    const yesterdayObj = new Date(dateObj);
+    yesterdayObj.setDate(dateObj.getDate() - 1);
+    const testDateStr = `${(yesterdayObj.getMonth() + 1).toString().padStart(2, '0')}-${yesterdayObj.getDate().toString().padStart(2, '0')}-${yesterdayObj.getFullYear()}`;
     
-    // Get auth token and cookies
-    const token = localStorage.getItem('jwt_token');
-    const cookies = localStorage.getItem('foreup_cookies');
+    console.log(`Also testing with date: ${testDateStr}`);
     
-    if (!token) {
-        console.error('No JWT token found, cannot fetch tee times');
-        showNoTeeTimesMessage('Authentication error. Please try logging in again.');
-        return;
-    }
+    // Try both booking classes
+    const bookingClasses = ["50530", "3272"];
+    let currentAttempt = 0;
+    const maxAttempts = bookingClasses.length;
     
-    // Create URL exactly matching the curl format
-    let url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
-    
-    // Schedule IDs exactly as in curl command
-    const scheduleIds = [
-        "3564", "3565", "3566", "3567", "3568", "3569", "3570", "3572", "3727"
-    ];
-    
-    // Add schedule_ids[] parameters with the format that works
-    scheduleIds.forEach(id => {
-        url += `&schedule_ids%5B%5D=${id}`;
-    });
-    
-    // Add remaining parameters
-    url += '&specials_only=0&api_key=no_limits';
-    
-    // Set headers to exactly match the curl command
-    const headers = {
-        'accept': 'application/json, text/javascript, */*; q=0.01',
-        'accept-language': 'en-US,en;q=0.9',
-        'api-key': 'no_limits',
-        'dnt': '1',
-        'origin': 'https://satxgolf.pages.dev',
-        'priority': 'u=1, i',
-        'referer': 'https://satxgolf.pages.dev/',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'cross-site',
-        'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-        'x-authorization': `Bearer ${token}`,
-        'x-foreup-cookies': cookies,
-        'x-fu-golfer-location': 'foreup',
-        'x-requested-with': 'XMLHttpRequest'
-    };
-    
-    console.log('Fetching tee times with URL:', url);
-    console.log('Using headers:', headers);
-    
-    // Make the API request
-    fetch(url, { headers })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`API returned status ${response.status}`);
-            }
-            return response.text(); // First get the raw text
-        })
-        .then(text => {
-            // Log the raw response
-            console.log('Raw API response (first 200 chars):', text.substring(0, 200) + '...');
+    // Function to try the next booking class
+    function tryNextBookingClass() {
+        if (currentAttempt >= maxAttempts) {
+            showNoTeeTimesMessage(`Unable to fetch tee times after ${maxAttempts} attempts. Try again later or contact support.`);
+            return;
+        }
+        
+        const bookingClassId = bookingClasses[currentAttempt];
+        currentAttempt++;
+        
+        console.log(`Attempt ${currentAttempt} of ${maxAttempts}: Using booking class ID: ${bookingClassId}`);
+        
+        // Get auth token and cookies
+        const token = localStorage.getItem('jwt_token');
+        const cookies = localStorage.getItem('foreup_cookies');
+        
+        if (!token) {
+            console.error('No JWT token found, cannot fetch tee times');
+            showNoTeeTimesMessage('Authentication error. Please try logging in again.');
+            return;
+        }
+        
+        // Try a simplified URL with fewer parameters
+        const useSimplifiedUrl = currentAttempt > 1;
+        let url;
+        
+        if (useSimplifiedUrl) {
+            // Simpler URL with minimal parameters
+            url = `${API_BASE_URL}/api/teetimes?date=${dateStr}&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
+        } else {
+            // Full URL with all parameters
+            url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
             
-            // Handle false response
-            if (text === 'false') {
-                console.log('API returned false - no tee times available');
-                showNoTeeTimesMessage(`No tee times available for ${dateStr}. Please try another date or check back later.`);
-                return [];
-            }
+            // Schedule IDs
+            const scheduleIds = [
+                "3564", "3565", "3566", "3567", "3568", "3569", "3570", "3572", "3727"
+            ];
             
-            // Try to parse as JSON if not false
-            try {
-                if (!text || text.trim() === '') {
-                    // Empty response
-                    showNoTeeTimesMessage('No data received from the server.');
+            // Add schedule_ids[] parameters
+            scheduleIds.forEach(id => {
+                url += `&schedule_ids%5B%5D=${id}`;
+            });
+            
+            // Add remaining parameters
+            url += '&specials_only=0&api_key=no_limits';
+        }
+        
+        // Set essential headers
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'api-key': 'no_limits'
+        };
+        
+        // Add cookies if available
+        if (cookies) {
+            headers['X-ForeUp-Cookies'] = cookies;
+        }
+        
+        console.log(`Attempt ${currentAttempt}: Fetching tee times with URL:`, url);
+        console.log(`Attempt ${currentAttempt}: Using headers:`, headers);
+        
+        // Make the API request
+        fetch(url, { headers })
+            .then(response => {
+                console.log(`Attempt ${currentAttempt}: Response status:`, response.status);
+                if (!response.ok) {
+                    throw new Error(`API returned status ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(text => {
+                console.log(`Attempt ${currentAttempt}: Raw response length:`, text.length);
+                console.log(`Attempt ${currentAttempt}: Raw response preview:`, text.substring(0, 200) + '...');
+                
+                // Handle false response
+                if (text === 'false') {
+                    console.log(`Attempt ${currentAttempt}: API returned false - trying next configuration`);
+                    
+                    // If this was the last attempt, try with a different date
+                    if (currentAttempt === maxAttempts && dateStr !== testDateStr) {
+                        console.log(`Trying with alternative date: ${testDateStr}`);
+                        currentAttempt = 0;
+                        dateStr = testDateStr;
+                        tryNextBookingClass();
+                        return [];
+                    }
+                    
+                    tryNextBookingClass();
                     return [];
                 }
-                return JSON.parse(text);
-            } catch (e) {
-                console.error('Error parsing JSON:', e);
-                throw new Error('Invalid response format from API');
-            }
-        })
-        .then(data => {
-            // Early return if we already handled the false case
-            if (!data || (Array.isArray(data) && data.length === 0)) {
-                return;
-            }
-            
-            // Check if data is an array
-            if (!Array.isArray(data)) {
-                console.warn('API did not return an array of tee times, received:', typeof data);
-                showNoTeeTimesMessage('No tee time data available for this date.');
-                return;
-            }
-            
-            console.log(`Received ${data.length} tee times from API`);
-            
-            // Filter tee times to only include the selected course
-            const facilityIdNum = parseInt(facilityId);
-            const courseTeeTimes = data.filter(time => 
-                time.teesheet_id === facilityIdNum || 
-                time.teesheet_id === facilityId ||
-                time.schedule_id === facilityIdNum || 
-                time.schedule_id === facilityId
-            );
-            
-            console.log(`Filtered to ${courseTeeTimes.length} tee times for selected course`);
-            
-            if (courseTeeTimes.length === 0) {
-                showNoTeeTimesMessage(`No tee times available for ${dateStr} at this course. Please try another date.`);
-                return;
-            }
-            
-            displayTeeTimes(courseTeeTimes);
-        })
-        .catch(error => {
-            console.error('Error fetching tee times:', error);
-            showNoTeeTimesMessage(`Error loading tee times: ${error.message}`);
-        });
+                
+                // Try to parse as JSON if not false
+                try {
+                    if (!text || text.trim() === '') {
+                        console.log(`Attempt ${currentAttempt}: Empty response - trying next configuration`);
+                        tryNextBookingClass();
+                        return [];
+                    }
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error(`Attempt ${currentAttempt}: Error parsing JSON:`, e);
+                    tryNextBookingClass();
+                    return [];
+                }
+            })
+            .then(data => {
+                // Skip if we're moving to the next attempt
+                if (!data || (Array.isArray(data) && data.length === 0)) {
+                    return;
+                }
+                
+                // Check if data is an array
+                if (!Array.isArray(data)) {
+                    console.warn(`Attempt ${currentAttempt}: API did not return an array:`, typeof data);
+                    tryNextBookingClass();
+                    return;
+                }
+                
+                console.log(`Attempt ${currentAttempt}: Success! Received ${data.length} tee times`);
+                
+                // Filter tee times to only include the selected course
+                const facilityIdNum = parseInt(facilityId);
+                const courseTeeTimes = data.filter(time => 
+                    time.teesheet_id === facilityIdNum || 
+                    time.teesheet_id === facilityId ||
+                    time.schedule_id === facilityIdNum || 
+                    time.schedule_id === facilityId
+                );
+                
+                console.log(`Filtered to ${courseTeeTimes.length} tee times for selected course`);
+                
+                if (courseTeeTimes.length === 0) {
+                    tryNextBookingClass();
+                    return;
+                }
+                
+                displayTeeTimes(courseTeeTimes);
+            })
+            .catch(error => {
+                console.error(`Attempt ${currentAttempt}: Error:`, error);
+                tryNextBookingClass();
+            });
+    }
+    
+    // Start the first attempt
+    tryNextBookingClass();
 }
 
 // Function to show a custom no-tee-times message
