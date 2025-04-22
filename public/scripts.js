@@ -389,10 +389,19 @@ function selectDate(year, month, day) {
 }
 
 // Function to fetch tee times from API
-
-// Fix the fetchTeeTimes function to handle errors properly
 function fetchTeeTimes(courseId, facilityId, dateStr) {
     console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
+    
+    // Show loading indicator
+    if (teeTimesLoading) {
+        teeTimesLoading.style.display = 'block';
+    }
+    if (teeTimesList) {
+        teeTimesList.style.display = 'none';
+    }
+    if (noTeeTimes) {
+        noTeeTimes.style.display = 'none';
+    }
     
     // Get JWT token from localStorage
     const token = localStorage.getItem('jwt_token');
@@ -400,7 +409,7 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
     
     if (!token) {
         console.error('No JWT token found, cannot fetch tee times');
-        displayTeeTimes([]);
+        showNoTeeTimesMessage('Authentication error. Please try logging in again.');
         return;
     }
     
@@ -417,29 +426,36 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
         "3568", // Olmos Basin
         "3569", // Riverside 18
         "3570", // Teddy Bear Par 3
-        "3572"  // San Pedro Par 3
+        "3572",  // San Pedro Par 3
+        "3727"   // Adding this ID from the ForeUp request
     ];
     
     // Create URL with all necessary parameters
     let url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
     
-    // Add schedule_ids[] parameters for all courses
+    // Add schedule_ids[] parameters for all courses with proper encoding
     scheduleIds.forEach(id => {
-        url += `&schedule_ids[]=${id}`;
+        url += `&schedule_ids%5B%5D=${id}`;
     });
     
     // Add remaining parameters
-    url += '&specials_only=0';
+    url += '&specials_only=0&api_key=no_limits';
     
     // Set headers for the request
     const headers = {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'api-key': 'no_limits',
+        'x-fu-golfer-location': 'foreup',
+        'x-requested-with': 'XMLHttpRequest'
     };
     
     if (cookies) {
         headers['X-ForeUp-Cookies'] = cookies;
     }
+    
+    console.log('Fetching tee times with URL:', url);
+    console.log('Using headers:', headers);
     
     // Make the API request
     fetch(url, { headers })
@@ -447,22 +463,39 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
             if (!response.ok) {
                 throw new Error(`API returned status ${response.status}`);
             }
-            return response.json();
+            return response.text(); // First get the raw text
+        })
+        .then(text => {
+            // Log the raw response
+            console.log('Raw API response:', text.substring(0, 200) + '...');
+            
+            // Try to parse as JSON
+            try {
+                if (!text || text.trim() === '') {
+                    // Empty response
+                    return [];
+                }
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Error parsing JSON:', e);
+                throw new Error('Invalid response format from API');
+            }
         })
         .then(data => {
-            console.log('Received tee times data:', data);
-            
             // Check if data is an array
             if (!Array.isArray(data)) {
                 console.warn('API did not return an array of tee times, received:', typeof data);
-                // If data is not an array, check if it's an object with an error message
-                if (data && data.error) {
-                    console.error('API returned error:', data.error);
-                }
                 // Show empty tee times
-                displayTeeTimes([]);
+                showNoTeeTimesMessage('No tee time data available for this date.');
                 return;
             }
+            
+            if (data.length === 0) {
+                showNoTeeTimesMessage('No tee times available for this date. Please try another date.');
+                return;
+            }
+            
+            console.log(`Received ${data.length} tee times from API`);
             
             // Filter tee times to only include the selected course
             const facilityIdNum = parseInt(facilityId);
@@ -478,9 +511,24 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
         })
         .catch(error => {
             console.error('Error fetching tee times:', error);
-            displayTeeTimes([]);
+            showNoTeeTimesMessage('Error loading tee times. Please try again later.');
         });
 }
+
+// Function to show a custom no-tee-times message
+function showNoTeeTimesMessage(message) {
+    if (teeTimesLoading) {
+        teeTimesLoading.style.display = 'none';
+    }
+    if (teeTimesList) {
+        teeTimesList.style.display = 'none';
+    }
+    if (noTeeTimes) {
+        noTeeTimes.style.display = 'block';
+        noTeeTimes.innerHTML = `<p>${message}</p>`;
+    }
+}
+
 
 // Function to display tee times
 function displayTeeTimes(teeTimesData) {
