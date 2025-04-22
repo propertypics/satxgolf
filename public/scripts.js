@@ -389,21 +389,20 @@ function selectDate(year, month, day) {
 }
 
 // Function to fetch tee times from API
+// Updated fetchTeeTimes function to more closely match the successful cURL request
 function fetchTeeTimes(courseId, facilityId, dateStr) {
     console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
     
     // Show loading indicator
-    if (teeTimesLoading) {
-        teeTimesLoading.style.display = 'block';
-    }
-    if (teeTimesList) {
-        teeTimesList.style.display = 'none';
-    }
-    if (noTeeTimes) {
-        noTeeTimes.style.display = 'none';
-    }
+    if (teeTimesLoading) teeTimesLoading.style.display = 'block';
+    if (teeTimesList) teeTimesList.style.display = 'none';
+    if (noTeeTimes) noTeeTimes.style.display = 'none';
     
-    // Get JWT token from localStorage
+    // Always use booking class 50530 (Trailpass Plus) which is known to work
+    const bookingClassId = "3272";
+    //const bookingClassId = "50530";
+    
+    // Get auth token and cookies
     const token = localStorage.getItem('jwt_token');
     const cookies = localStorage.getItem('foreup_cookies');
     
@@ -413,27 +412,15 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
         return;
     }
     
-    // Get user's booking class ID
-    const bookingClassId = getUserBookingClassId();
-    console.log(`Using booking class ID: ${bookingClassId}`);
+    // Create URL exactly matching the successful cURL request format
+    let url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
     
     // All San Antonio golf course schedule IDs
     const scheduleIds = [
-        "3564", // Brackenridge
-        "3565", // Cedar Creek
-        "3566", // Mission del Lago
-        "3567", // Northern Hills
-        "3568", // Olmos Basin
-        "3569", // Riverside 18
-        "3570", // Teddy Bear Par 3
-        "3572",  // San Pedro Par 3
-        "3727"   // Adding this ID from the ForeUp request
+        "3564", "3565", "3566", "3567", "3568", "3569", "3570", "3572", "3727"
     ];
     
-    // Create URL with all necessary parameters
-    let url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
-    
-    // Add schedule_ids[] parameters for all courses with proper encoding
+    // Add schedule_ids[] parameters with the format that works
     scheduleIds.forEach(id => {
         url += `&schedule_ids%5B%5D=${id}`;
     });
@@ -441,15 +428,18 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
     // Add remaining parameters
     url += '&specials_only=0&api_key=no_limits';
     
-    // Set headers for the request
+    // Set headers to match the successful cURL request
     const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        'accept': 'application/json, text/javascript, */*; q=0.01',
+        'accept-language': 'en-US,en;q=0.9',
         'api-key': 'no_limits',
+        'x-authorization': `Bearer ${token}`,
         'x-fu-golfer-location': 'foreup',
-        'x-requested-with': 'XMLHttpRequest'
+        'x-requested-with': 'XMLHttpRequest',
+        'referer': `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`
     };
     
+    // Add cookies if available (use X-ForeUp-Cookies header for proxy)
     if (cookies) {
         headers['X-ForeUp-Cookies'] = cookies;
     }
@@ -467,12 +457,20 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
         })
         .then(text => {
             // Log the raw response
-            console.log('Raw API response:', text.substring(0, 200) + '...');
+            console.log('Raw API response (first 200 chars):', text.substring(0, 200) + '...');
             
-            // Try to parse as JSON
+            // Handle false response
+            if (text === 'false') {
+                console.log('API returned false - no tee times available');
+                showNoTeeTimesMessage(`No tee times available for ${dateStr}. Please try another date or check back later.`);
+                return [];
+            }
+            
+            // Try to parse as JSON if not false
             try {
                 if (!text || text.trim() === '') {
                     // Empty response
+                    showNoTeeTimesMessage('No data received from the server.');
                     return [];
                 }
                 return JSON.parse(text);
@@ -482,16 +480,15 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
             }
         })
         .then(data => {
-            // Check if data is an array
-            if (!Array.isArray(data)) {
-                console.warn('API did not return an array of tee times, received:', typeof data);
-                // Show empty tee times
-                showNoTeeTimesMessage('No tee time data available for this date.');
+            // Early return if we already handled the false case
+            if (!data || (Array.isArray(data) && data.length === 0)) {
                 return;
             }
             
-            if (data.length === 0) {
-                showNoTeeTimesMessage('No tee times available for this date. Please try another date.');
+            // Check if data is an array
+            if (!Array.isArray(data)) {
+                console.warn('API did not return an array of tee times, received:', typeof data);
+                showNoTeeTimesMessage('No tee time data available for this date.');
                 return;
             }
             
@@ -507,11 +504,17 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
             );
             
             console.log(`Filtered to ${courseTeeTimes.length} tee times for selected course`);
+            
+            if (courseTeeTimes.length === 0) {
+                showNoTeeTimesMessage(`No tee times available for ${dateStr} at this course. Please try another date.`);
+                return;
+            }
+            
             displayTeeTimes(courseTeeTimes);
         })
         .catch(error => {
             console.error('Error fetching tee times:', error);
-            showNoTeeTimesMessage('Error loading tee times. Please try again later.');
+            showNoTeeTimesMessage(`Error loading tee times: ${error.message}`);
         });
 }
 
