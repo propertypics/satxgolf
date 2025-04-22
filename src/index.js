@@ -19,7 +19,7 @@ function debug(message, data) {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*", // Replace with your domain in production
   "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, api-key, x-fu-golfer-location, x-requested-with, X-ForeUp-Cookies, x-authorization, priority, origin, referer",",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, api-key, x-fu-golfer-location, x-requested-with, X-ForeUp-Cookies, x-authorization, priority, origin, referer"
   "Access-Control-Max-Age": "86400",
 };
 
