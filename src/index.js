@@ -229,97 +229,74 @@ async function handleLoginRequest(request) {
 }
 
 // Handle tee time requests
+
 async function handleTeeTimesRequest(request) {
   try {
-    // Parse the incoming request for course ID, date, etc.
-    const url = new URL(request.url);
-    const courseId = url.searchParams.get("courseId") || "20106";
-    const facilityId = url.searchParams.get("facilityId") || "3567";
-    const date = url.searchParams.get("date") || getFormattedDate();
+    // Parse the incoming request URL
+    const originalUrl = new URL(request.url);
     
-    debug(`Fetching tee times for course ${courseId}, date ${date}`);
+    // Create a new URL for ForeUp but preserve all original parameters
+    const foreupUrl = new URL("https://foreupsoftware.com/index.php/api/booking/times");
     
-    // Create the tee times URL
-    const teeTimesUrl = `https://foreupsoftware.com/index.php/api/booking/times?time=&date=${date}&holes=&players=&booking_class=&schedule_id=${courseId}&schedule_ids%5B%5D=${courseId}&specials_only=0&api_key=no_limits`;
-    debug(`Tee times URL: ${teeTimesUrl}`);
+    // Copy all parameters from the original request
+    originalUrl.searchParams.forEach((value, key) => {
+      foreupUrl.searchParams.append(key, value);
+    });
+    
+    // Add api_key if not present
+    if (!foreupUrl.searchParams.has('api_key')) {
+      foreupUrl.searchParams.append('api_key', 'no_limits');
+    }
+    
+    debug(`Fetching tee times with URL: ${foreupUrl.toString()}`);
     
     // Get JWT token and cookies from the request headers
     const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
     const cookies = request.headers.get("X-ForeUp-Cookies");
-    
-    debug("Tee times request headers from frontend", {
-      hasJwt: !!jwt,
-      hasCookies: !!cookies,
-      jwtPreview: jwt ? jwt.substring(0, 20) + "..." : "none",
-      cookiesPreview: cookies ? cookies.substring(0, 30) + "..." : "none"
-    });
     
     // Build headers for ForeUp request
     const headers = {
       "Accept": "application/json, text/javascript, */*; q=0.01",
       "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
       "Origin": "https://foreupsoftware.com",
-      "Referer": `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`,
-      "api-key": "no_limits", 
+      "Referer": "https://foreupsoftware.com/index.php/booking/",
+      "api-key": "no_limits",
       "x-fu-golfer-location": "foreup",
       "x-requested-with": "XMLHttpRequest"
     };
     
-    // Add authorization headers based on what we have
+    // Add authorization headers
     if (jwt) {
-      headers["x-authorization"] = `Bearer ${jwt}`;  // Use x-authorization instead of Authorization
-      debug("Added JWT token to x-authorization header");
+      headers["x-authorization"] = `Bearer ${jwt}`;
     }
     
     if (cookies) {
       headers["Cookie"] = cookies;
-      debug("Added cookies to Cookie header");
     }
-    
-    debug("Request headers for ForeUp tee times", headers);
     
     // Make the request to ForeUp
-    let response;
-    try {
-      debug("Making fetch request to ForeUp for tee times");
-      response = await fetch(teeTimesUrl, {
-        method: "GET",
-        headers: headers
-      });
-      
-      debug(`Received tee times response with status: ${response.status}`);
-      debug("Response headers", Object.fromEntries(response.headers.entries()));
-      
-    } catch (error) {
-      debug(`Error fetching tee times: ${error.message}`, { stack: error.stack });
-      return errorResponse(`Failed to fetch tee times: ${error.message}`);
+    const response = await fetch(foreupUrl.toString(), {
+      method: "GET",
+      headers: headers
+    });
+    
+    // Process and return the response
+    const responseText = await response.text();
+    
+    if (!responseText || responseText.trim() === '') {
+      debug("Empty response from ForeUp API");
+      return errorResponse("Empty response from ForeUp API", 502);
     }
     
-    // Try to parse response as JSON
-    let data;
     try {
-      const responseText = await response.text();
-      debug(`First 200 chars of tee times response: ${responseText.substring(0, 200)}...`);
-      
-      if (responseText && responseText.trim()) {
-        data = JSON.parse(responseText);
-        debug("Parsed tee times data", { 
-          count: Array.isArray(data) ? data.length : 'not an array',
-          data: Array.isArray(data) ? data.slice(0, 2) : data // Show first 2 tee times for debugging
-        });
-      } else {
-        debug("Empty response from ForeUp API");
-        return errorResponse("Empty response from ForeUp API", 502);
-      }
+      const data = JSON.parse(responseText);
+      return jsonResponse(data, response.status);
     } catch (error) {
-      debug(`Error parsing tee times response: ${error.message}`);
+      debug(`Error parsing response: ${error.message}`);
       return errorResponse("Invalid JSON response from ForeUp API", 502);
     }
-    
-    // Return the response with CORS headers
-    return jsonResponse(data, response.status);
   } catch (error) {
-    debug(`Tee times error: ${error.message}`, { stack: error.stack });
+    debug(`Tee times error: ${error.message}`);
     return errorResponse(`Failed to fetch tee times: ${error.message}`);
   }
 }
