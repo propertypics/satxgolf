@@ -389,7 +389,6 @@ function selectDate(year, month, day) {
 }
 
 // Function to fetch tee times from API
-// Updated fetchTeeTimes function to more closely match the successful cURL request
 function fetchTeeTimes(courseId, facilityId, dateStr) {
     console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
     
@@ -398,9 +397,8 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
     if (teeTimesList) teeTimesList.style.display = 'none';
     if (noTeeTimes) noTeeTimes.style.display = 'none';
     
-    // Always use booking class 50530 (Trailpass Plus) which is known to work
-    const bookingClassId = "3272";
-    //const bookingClassId = "50530";
+    // Force booking class to match the working curl example
+    const bookingClassId = "50530"; // Trailpass Plus
     
     // Get auth token and cookies
     const token = localStorage.getItem('jwt_token');
@@ -412,10 +410,10 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
         return;
     }
     
-    // Create URL exactly matching the successful cURL request format
+    // Create URL exactly matching the curl format
     let url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
     
-    // All San Antonio golf course schedule IDs
+    // Schedule IDs exactly as in curl command
     const scheduleIds = [
         "3564", "3565", "3566", "3567", "3568", "3569", "3570", "3572", "3727"
     ];
@@ -428,21 +426,24 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
     // Add remaining parameters
     url += '&specials_only=0&api_key=no_limits';
     
-    // Set headers to match the successful cURL request
+    // Set headers to exactly match the curl command
     const headers = {
         'accept': 'application/json, text/javascript, */*; q=0.01',
         'accept-language': 'en-US,en;q=0.9',
         'api-key': 'no_limits',
+        'dnt': '1',
+        'origin': 'https://satxgolf.pages.dev',
+        'priority': 'u=1, i',
+        'referer': 'https://satxgolf.pages.dev/',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'cross-site',
+        'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
         'x-authorization': `Bearer ${token}`,
+        'x-foreup-cookies': cookies,
         'x-fu-golfer-location': 'foreup',
-        'x-requested-with': 'XMLHttpRequest',
-        'referer': `https://foreupsoftware.com/index.php/booking/${courseId}/${facilityId}`
+        'x-requested-with': 'XMLHttpRequest'
     };
-    
-    // Add cookies if available (use X-ForeUp-Cookies header for proxy)
-    if (cookies) {
-        headers['X-ForeUp-Cookies'] = cookies;
-    }
     
     console.log('Fetching tee times with URL:', url);
     console.log('Using headers:', headers);
