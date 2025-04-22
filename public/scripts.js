@@ -1,4 +1,3 @@
-// This should be inserted at the top of your scripts.js file, replacing the existing code
 const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev";
 const APP_VERSION = "1.0.9";
 
@@ -368,6 +367,202 @@ function showMessage(message, type) {
     } else {
         console.error('Login message element not found');
         alert(message); // Fallback to alert if the message element isn't found
+    }
+}
+
+// Function to initialize the stats page
+function initializeStatsPage() {
+    console.log('Initializing stats page...');
+    
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const statsContainer = document.getElementById('statsContainer');
+    const noDataMessage = document.getElementById('noDataMessage');
+    const membershipInfo = document.getElementById('membershipInfo');
+    const punchInfo = document.getElementById('punchInfo');
+    const punchCard = document.getElementById('punchCard');
+    const recentActivity = document.getElementById('recentActivity');
+    
+    if (!loadingIndicator || !statsContainer || !noDataMessage || !membershipInfo || !punchInfo || !punchCard || !recentActivity) {
+        console.error('Missing required DOM elements for stats page');
+        // Try to show an error message on the page
+        const mainElement = document.querySelector('main');
+        if (mainElement) {
+            mainElement.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: red;">
+                    <h3>Error: Stats Page Elements Not Found</h3>
+                    <p>There is a technical issue with the page. Please contact support.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    if (!checkLogin()) {
+        loadingIndicator.style.display = 'none';
+        noDataMessage.style.display = 'block';
+        return;
+    }
+    
+    const loginDataStr = localStorage.getItem('login_data');
+    if (!loginDataStr) {
+        loadingIndicator.style.display = 'none';
+        noDataMessage.style.display = 'block';
+        noDataMessage.innerHTML = `
+            <h3>No Stats Available</h3>
+            <p>No golf data found. Try logging in again.</p>
+        `;
+        return;
+    }
+    
+    try {
+        const loginData = JSON.parse(loginDataStr);
+        console.log('Parsed login data for stats page');
+        
+        const userData = {
+            name: `${loginData.first_name} ${loginData.last_name}`,
+            email: loginData.email,
+            phone: loginData.phone_number || loginData.cell_phone_number || 'N/A'
+        };
+        
+        let membershipData = { name: 'No Membership', expires: 'N/A', purchased: 'N/A' };
+        let hasPunchPass = false;
+        let punchData = null;
+        let recentRounds = [];
+        
+        if (loginData.passes) {
+            const passIds = Object.keys(loginData.passes);
+            if (passIds.length > 0) {
+                const passId = passIds[0];
+                const pass = loginData.passes[passId];
+                membershipData = {
+                    name: pass.name || 'Unknown Membership',
+                    expires: formatDate(pass.end_date) || 'N/A',
+                    purchased: formatDate(pass.date_purchased) || 'N/A'
+                };
+                
+                if (pass.rules && pass.rules.length > 0) {
+                    const punchRule = pass.rules.find(rule => rule.rule_number === 2);
+                    if (punchRule) {
+                        hasPunchPass = true;
+                        let punchesUsed = 0;
+                        const punchClassId = punchRule.price_class_id;
+                        if (pass.uses && Array.isArray(pass.uses)) {
+                            punchesUsed = pass.uses.filter(use => 
+                                use.rule_number === "2" && use.price_class_id === String(punchClassId)
+                            ).length;
+                            recentRounds = pass.uses.map(use => {
+                                const isPunch = use.rule_number === "2" && use.price_class_id === String(punchClassId);
+                                let courseName = "Unknown Course";
+                                const teesheetId = use.teesheet_id;
+                                switch(teesheetId) {
+                                    case "3564": courseName = "Brackenridge Park"; break;
+                                    case "3565": courseName = "Cedar Creek"; break;
+                                    case "3566": courseName = "Mission del Lago"; break;
+                                    case "3567": courseName = "Northern Hills"; break;
+                                    case "3568": courseName = "Olmos Basin"; break;
+                                    case "3569": courseName = "Riverside Championship"; break;
+                                    case "3570": courseName = "Riverside Teddy Bear"; break;
+                                    case "3572": courseName = "San Pedro Par 3"; break;
+                                    default: courseName = "Unknown Course";
+                                }
+                                return {
+                                    date: formatDate(use.date),
+                                    course: courseName,
+                                    isPunch: isPunch
+                                };
+                            }).sort((a, b) => new Date(b.date) - new Date(a.date));
+                        }
+                        punchData = {
+                            used: punchesUsed,
+                            total: 10,
+                            percent: (punchesUsed / 10) * 100
+                        };
+                    }
+                }
+            }
+        }
+        
+        membershipInfo.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-label">Name:</span>
+                <span>${userData.name}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Membership:</span>
+                <span>${membershipData.name}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Expires:</span>
+                <span>${membershipData.expires}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Purchase Date:</span>
+                <span>${membershipData.purchased}</span>
+            </div>
+        `;
+        
+        if (hasPunchPass && punchData) {
+            punchInfo.innerHTML = `
+                <div class="punch-container">
+                    <span>${punchData.used}</span>
+                    <div class="punch-bar">
+                        <div class="punch-progress" style="width: ${punchData.percent}%"></div>
+                        <div class="punch-text">${punchData.used} of ${punchData.total} Used</div>
+                    </div>
+                    <span>${punchData.total}</span>
+                </div>
+            `;
+        } else {
+            punchCard.style.display = 'none';
+        }
+        
+        if (recentRounds.length > 0) {
+            const recentFiveRounds = recentRounds.slice(0, 5);
+            recentActivity.innerHTML = `
+                <ul class="recent-list">
+                    ${recentFiveRounds.map(round => `
+                        <li class="recent-item ${round.isPunch ? 'punch' : ''}">
+                            <div>
+                                <div class="course-name">${round.course}</div>
+                                <div class="date">${round.date}</div>
+                            </div>
+                            <span class="badge ${round.isPunch ? 'badge-punch' : 'badge-paid'}">
+                                ${round.isPunch ? 'Punch' : 'Paid'}
+                            </span>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        } else {
+            recentActivity.innerHTML = '<p>No recent activity found.</p>';
+        }
+        
+        loadingIndicator.style.display = 'none';
+        statsContainer.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error parsing login data:', error);
+        loadingIndicator.style.display = 'none';
+        noDataMessage.style.display = 'block';
+        noDataMessage.innerHTML = `
+            <h3>Error Loading Stats</h3>
+            <p>There was a problem loading your golf data.</p>
+        `;
+    }
+}
+
+// Helper function to format dates
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+    } catch (e) {
+        return dateStr;
     }
 }
 
