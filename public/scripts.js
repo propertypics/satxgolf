@@ -292,6 +292,8 @@ function hideTeeTimeModal() {
 }
 
 // Function to generate the calendar
+
+// Update the generateCalendar function to properly handle past dates
 function generateCalendar(month, year) {
     if (!calendarDays || !calendarMonth) return;
     
@@ -316,23 +318,30 @@ function generateCalendar(month, year) {
     
     // Create cells for each day of the month
     const today = new Date();
+    // Set today to beginning of day for proper comparison
+    today.setHours(0, 0, 0, 0);
+    
     const twoWeeksFromNow = new Date();
     twoWeeksFromNow.setDate(today.getDate() + 14);
+    twoWeeksFromNow.setHours(23, 59, 59, 999);
     
     for (let i = 1; i <= daysInMonth; i++) {
         const dayCell = document.createElement('div');
         dayCell.className = 'day';
         dayCell.textContent = i;
         
-        // Check if this day is valid for booking (not in the past and not more than 2 weeks in future)
+        // Check if this day is valid for booking
         const thisDate = new Date(year, month, i);
+        thisDate.setHours(0, 0, 0, 0); // Set to beginning of day for proper comparison
         
-        // Set today's date to start of day for comparison
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        
-        if (thisDate < todayStart || thisDate > twoWeeksFromNow) {
+        if (thisDate < today) {
+            // Past date - always disabled
+            dayCell.classList.add('disabled');
+        } else if (thisDate > twoWeeksFromNow) {
+            // More than 2 weeks in the future - also disabled
             dayCell.classList.add('disabled');
         } else {
+            // Available date
             dayCell.classList.add('available');
             
             // Add click event to select this date
@@ -380,6 +389,8 @@ function selectDate(year, month, day) {
 }
 
 // Function to fetch tee times from API
+
+// Fix the fetchTeeTimes function to handle errors properly
 function fetchTeeTimes(courseId, facilityId, dateStr) {
     console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
     
@@ -439,12 +450,27 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
             return response.json();
         })
         .then(data => {
-            console.log(`Received ${data.length} tee times from API`);
+            console.log('Received tee times data:', data);
+            
+            // Check if data is an array
+            if (!Array.isArray(data)) {
+                console.warn('API did not return an array of tee times, received:', typeof data);
+                // If data is not an array, check if it's an object with an error message
+                if (data && data.error) {
+                    console.error('API returned error:', data.error);
+                }
+                // Show empty tee times
+                displayTeeTimes([]);
+                return;
+            }
             
             // Filter tee times to only include the selected course
+            const facilityIdNum = parseInt(facilityId);
             const courseTeeTimes = data.filter(time => 
-                time.teesheet_id === parseInt(facilityId) ||
-                time.teesheet_id === facilityId
+                time.teesheet_id === facilityIdNum || 
+                time.teesheet_id === facilityId ||
+                time.schedule_id === facilityIdNum || 
+                time.schedule_id === facilityId
             );
             
             console.log(`Filtered to ${courseTeeTimes.length} tee times for selected course`);
