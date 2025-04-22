@@ -22,6 +22,29 @@ const userName = getElement('userName');
 const logoutBtn = getElement('logoutBtn');
 const statsLink = getElement('statsLink');
 
+// Tee time related elements
+const teeTimeModal = getElement('teeTimeModal');
+const closeTeeTimeModal = getElement('closeTeeTimeModal');
+const teeTimeModalTitle = getElement('teeTimeModalTitle');
+const dateSelectionView = getElement('dateSelectionView');
+const teeTimeSlotsView = getElement('teeTimeSlotsView');
+const calendarMonth = getElement('calendarMonth');
+const calendarDays = getElement('calendarDays');
+const prevMonth = getElement('prevMonth');
+const nextMonth = getElement('nextMonth');
+const backToCalendar = getElement('backToCalendar');
+const selectedDate = getElement('selectedDate');
+const teeTimesList = getElement('teeTimesList');
+const teeTimesLoading = getElement('teeTimesLoading');
+const noTeeTimes = getElement('noTeeTimes');
+
+// Call confirmation elements
+const callConfirmModal = getElement('callConfirmModal');
+const closeCallConfirmModal = getElement('closeCallConfirmModal');
+const callConfirmDetails = getElement('callConfirmDetails');
+const cancelCallBtn = getElement('cancelCallBtn');
+const makeCallBtn = getElement('makeCallBtn');
+
 // Course images mapping
 const courseImages = {
     "Brackenridge Park": "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
@@ -34,8 +57,27 @@ const courseImages = {
     "San Pedro Par 3": "https://images.unsplash.com/photo-1609198092458-38a293c7ac4b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
 };
 
-// Global variables
+// Calendar state
+let currentDate = new Date();
+let currentMonth = currentDate.getMonth();
+let currentYear = currentDate.getFullYear();
+let selectedTeeTime = null;
 let selectedCourse = null;
+
+// Default booking class if user doesn't have a specific membership
+const DEFAULT_BOOKING_CLASS = "3272"; // Public - No Booking Fees
+
+// Mapping from pass/membership names to booking class IDs
+const membershipToBookingClass = {
+    "Trailpass Plus": "50530",
+    "Trailpass Plus - Senior/Military": "50529",
+    "Level I / Trailpass": "3273",
+    "Level I / Trailpass - Senior/Military": "3274",
+    "Trailpass Pro": "50531",
+    "Legacy Level II": "3275",
+    "Legacy Level II - Senior/Military": "3276",
+    "Legacy Die Hard": "5866"
+};
 
 // Login check function
 function checkLogin() {
@@ -52,6 +94,39 @@ function checkLogin() {
     }
     if (statsLink) statsLink.style.display = 'none';
     return false;
+}
+
+// Function to get the user's booking class ID based on their membership
+function getUserBookingClassId() {
+    // Get user login data from localStorage
+    const loginDataStr = localStorage.getItem('login_data');
+    if (!loginDataStr) {
+        return DEFAULT_BOOKING_CLASS;
+    }
+    
+    try {
+        const loginData = JSON.parse(loginDataStr);
+        
+        // Check if the user has passes
+        if (loginData.passes) {
+            const passIds = Object.keys(loginData.passes);
+            if (passIds.length > 0) {
+                const passId = passIds[0];
+                const pass = loginData.passes[passId];
+                const membershipName = pass.name;
+                
+                // If we have a mapping for this membership, use it
+                if (membershipName && membershipToBookingClass[membershipName]) {
+                    return membershipToBookingClass[membershipName];
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error getting user booking class:', error);
+    }
+    
+    // Return default booking class if no match is found
+    return DEFAULT_BOOKING_CLASS;
 }
 
 // Function to load courses from API
@@ -168,45 +243,10 @@ function renderCourses(courses) {
             
             const bookBtn = courseCard.querySelector('.book-btn');
             bookBtn.addEventListener('click', () => {
-                selectedCourse = course;
-                console.log('Course selected:', course.name);
-                
                 if (checkLogin()) {
-                    // Show a notification that we're ready for the next step
-                    const notification = document.createElement('div');
-                    notification.style.position = 'fixed';
-                    notification.style.top = '50%';
-                    notification.style.left = '50%';
-                    notification.style.transform = 'translate(-50%, -50%)';
-                    notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
-                    notification.style.color = 'white';
-                    notification.style.padding = '20px';
-                    notification.style.borderRadius = '8px';
-                    notification.style.zIndex = '2000';
-                    notification.style.textAlign = 'center';
-                    notification.style.maxWidth = '90%';
-                    notification.style.width = '400px';
-                    notification.innerHTML = `
-                        <h3 style="margin-top: 0;">Course Selected</h3>
-                        <p>You've selected ${course.name}.</p>
-                        <p>In the future, we'll implement booking functionality here.</p>
-                        <button id="closeNotification" style="background-color: white; color: #2e7d32; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer;">Close</button>
-                    `;
-                    document.body.appendChild(notification);
-                    
-                    // Add event listener to close button
-                    const closeButton = notification.querySelector('#closeNotification');
-                    closeButton.addEventListener('click', () => {
-                        document.body.removeChild(notification);
-                    });
-                    
-                    // Auto-remove notification after 5 seconds
-                    setTimeout(() => {
-                        if (document.body.contains(notification)) {
-                            document.body.removeChild(notification);
-                        }
-                    }, 5000);
+                    showTeeTimeModal(course);
                 } else {
+                    selectedCourse = course;
                     showLoginModal();
                 }
             });
@@ -218,6 +258,375 @@ function renderCourses(courses) {
     });
     
     console.log('Course rendering complete.');
+}
+
+// Function to show the tee time modal with date selection
+function showTeeTimeModal(course) {
+    selectedCourse = course;
+    
+    // Update the modal title with course name
+    if (teeTimeModalTitle) {
+        teeTimeModalTitle.textContent = `Select Date - ${course.name}`;
+    }
+    
+    // Show date selection view, hide tee times view
+    if (dateSelectionView) dateSelectionView.style.display = 'block';
+    if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
+    
+    // Generate the calendar for current month
+    generateCalendar(currentMonth, currentYear);
+    
+    // Show the modal
+    if (teeTimeModal) {
+        teeTimeModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// Function to hide the tee time modal
+function hideTeeTimeModal() {
+    if (teeTimeModal) {
+        teeTimeModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+// Function to generate the calendar
+function generateCalendar(month, year) {
+    if (!calendarDays || !calendarMonth) return;
+    
+    // Clear previous calendar
+    calendarDays.innerHTML = '';
+    
+    // Update month display
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"];
+    calendarMonth.textContent = `${monthNames[month]} ${year}`;
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Create empty cells for days before first day of month
+    for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'day empty';
+        calendarDays.appendChild(emptyCell);
+    }
+    
+    // Create cells for each day of the month
+    const today = new Date();
+    const twoWeeksFromNow = new Date();
+    twoWeeksFromNow.setDate(today.getDate() + 14);
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'day';
+        dayCell.textContent = i;
+        
+        // Check if this day is valid for booking (not in the past and not more than 2 weeks in future)
+        const thisDate = new Date(year, month, i);
+        
+        // Set today's date to start of day for comparison
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        if (thisDate < todayStart || thisDate > twoWeeksFromNow) {
+            dayCell.classList.add('disabled');
+        } else {
+            dayCell.classList.add('available');
+            
+            // Add click event to select this date
+            dayCell.addEventListener('click', () => {
+                selectDate(year, month, i);
+            });
+        }
+        
+        // Highlight today
+        if (thisDate.getDate() === today.getDate() && 
+            thisDate.getMonth() === today.getMonth() && 
+            thisDate.getFullYear() === today.getFullYear()) {
+            dayCell.classList.add('today');
+        }
+        
+        calendarDays.appendChild(dayCell);
+    }
+}
+
+// Function to select a date and show tee times
+function selectDate(year, month, day) {
+    // Format selected date for display
+    const selectedDateObj = new Date(year, month, day);
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const formattedDate = selectedDateObj.toLocaleDateString('en-US', options);
+    
+    if (selectedDate) {
+        selectedDate.textContent = formattedDate;
+    }
+    
+    // Switch views
+    if (dateSelectionView) dateSelectionView.style.display = 'none';
+    if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'block';
+    
+    // Show loading indicator
+    if (teeTimesLoading) teeTimesLoading.style.display = 'block';
+    if (teeTimesList) teeTimesList.style.display = 'none';
+    if (noTeeTimes) noTeeTimes.style.display = 'none';
+    
+    // Format date for API request (MM-DD-YYYY)
+    const apiDateStr = `${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}-${year}`;
+    
+    // Fetch tee times for this date
+    fetchTeeTimes(selectedCourse.courseId, selectedCourse.facilityId, apiDateStr);
+}
+
+// Function to fetch tee times from API
+function fetchTeeTimes(courseId, facilityId, dateStr) {
+    console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
+    
+    // Get JWT token from localStorage
+    const token = localStorage.getItem('jwt_token');
+    const cookies = localStorage.getItem('foreup_cookies');
+    
+    if (!token) {
+        console.error('No JWT token found, cannot fetch tee times');
+        displayTeeTimes([]);
+        return;
+    }
+    
+    // Get user's booking class ID
+    const bookingClassId = getUserBookingClassId();
+    console.log(`Using booking class ID: ${bookingClassId}`);
+    
+    // All San Antonio golf course schedule IDs
+    const scheduleIds = [
+        "3564", // Brackenridge
+        "3565", // Cedar Creek
+        "3566", // Mission del Lago
+        "3567", // Northern Hills
+        "3568", // Olmos Basin
+        "3569", // Riverside 18
+        "3570", // Teddy Bear Par 3
+        "3572"  // San Pedro Par 3
+    ];
+    
+    // Create URL with all necessary parameters
+    let url = `${API_BASE_URL}/api/teetimes?time=all&date=${dateStr}&holes=all&players=0&booking_class=${bookingClassId}&schedule_id=${facilityId}`;
+    
+    // Add schedule_ids[] parameters for all courses
+    scheduleIds.forEach(id => {
+        url += `&schedule_ids[]=${id}`;
+    });
+    
+    // Add remaining parameters
+    url += '&specials_only=0';
+    
+    // Set headers for the request
+    const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+    };
+    
+    if (cookies) {
+        headers['X-ForeUp-Cookies'] = cookies;
+    }
+    
+    // Make the API request
+    fetch(url, { headers })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API returned status ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`Received ${data.length} tee times from API`);
+            
+            // Filter tee times to only include the selected course
+            const courseTeeTimes = data.filter(time => 
+                time.teesheet_id === parseInt(facilityId) ||
+                time.teesheet_id === facilityId
+            );
+            
+            console.log(`Filtered to ${courseTeeTimes.length} tee times for selected course`);
+            displayTeeTimes(courseTeeTimes);
+        })
+        .catch(error => {
+            console.error('Error fetching tee times:', error);
+            displayTeeTimes([]);
+        });
+}
+
+// Function to display tee times
+function displayTeeTimes(teeTimesData) {
+    if (!teeTimesList || !teeTimesLoading || !noTeeTimes) return;
+    
+    // Hide loading indicator
+    teeTimesLoading.style.display = 'none';
+    
+    // Check if we have tee times
+    if (!teeTimesData || teeTimesData.length === 0) {
+        noTeeTimes.style.display = 'block';
+        teeTimesList.style.display = 'none';
+        return;
+    }
+    
+    // Clear previous tee times
+    teeTimesList.innerHTML = '';
+    
+    // Group tee times by hour for better organization
+    const groupedTimes = {};
+    teeTimesData.forEach(teeTime => {
+        // Extract hour from the time string (format: "YYYY-MM-DD HH:MM")
+        const timeParts = teeTime.time.split(' ');
+        if (timeParts.length === 2) {
+            const hourMin = timeParts[1].split(':');
+            const hour = hourMin[0];
+            if (!groupedTimes[hour]) {
+                groupedTimes[hour] = [];
+            }
+            groupedTimes[hour].push(teeTime);
+        }
+    });
+    
+    // Display tee times by hour
+    Object.keys(groupedTimes).sort().forEach(hour => {
+        const hourTimes = groupedTimes[hour];
+        
+        // Create hour section
+        const hourSection = document.createElement('div');
+        hourSection.className = 'hour-section';
+        
+        // Determine if it's AM or PM
+        const hourNum = parseInt(hour);
+        const ampm = hourNum >= 12 ? 'PM' : 'AM';
+        const hour12 = hourNum % 12 || 12;
+        
+        // Create hour header
+        const hourHeader = document.createElement('h4');
+        hourHeader.className = 'hour-header';
+        hourHeader.textContent = `${hour12} ${ampm}`;
+        hourSection.appendChild(hourHeader);
+        
+        // Create time slots for this hour
+        hourTimes.forEach(teeTime => {
+            // Extract hour and minute from the time string
+            const timeParts = teeTime.time.split(' ')[1].split(':');
+            const hour = parseInt(timeParts[0]);
+            const minute = timeParts[1];
+            
+            // Format time for display
+            const formattedTime = formatTimeString(hour, parseInt(minute));
+            
+            // Create time slot element
+            const timeSlot = document.createElement('div');
+            timeSlot.className = 'time-slot';
+            
+            // Show pricing information
+            const greenFeeInfo = teeTime.green_fee_18 ? `$${teeTime.green_fee_18}` : '';
+            const cartFeeInfo = teeTime.cart_fee_18 ? `+$${teeTime.cart_fee_18} cart` : '';
+            const priceInfo = greenFeeInfo ? `${greenFeeInfo} ${cartFeeInfo}` : '';
+            
+            timeSlot.innerHTML = `
+                <span class="time">${formattedTime}</span>
+                <div class="time-details">
+                    <span class="spots">${teeTime.available_spots} spot${teeTime.available_spots !== 1 ? 's' : ''} available</span>
+                    ${priceInfo ? `<span class="price-info">${priceInfo}</span>` : ''}
+                </div>
+            `;
+            
+            // Add click event to book this time
+            timeSlot.addEventListener('click', () => {
+                selectTeeTime(teeTime, formattedTime);
+            });
+            
+            hourSection.appendChild(timeSlot);
+        });
+        
+        teeTimesList.appendChild(hourSection);
+    });
+    
+    // Show tee times list
+    teeTimesList.style.display = 'block';
+}
+
+// Function to format time string (e.g., "8:30 AM")
+function formatTimeString(hour, minute) {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
+}
+
+// Function to select a tee time
+function selectTeeTime(teeTime, formattedTime) {
+    selectedTeeTime = {
+        ...teeTime,
+        formattedTime: formattedTime
+    };
+    
+    // Update confirmation details
+    if (callConfirmDetails) {
+        const selectedDateObj = new Date(selectedDate.textContent);
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        
+        callConfirmDetails.innerHTML = `
+            <strong>${selectedDateObj.toLocaleDateString('en-US', options)} at ${formattedTime}</strong>
+            <span>${selectedCourse.name}</span>
+            ${teeTime.available_spots ? `<span>${teeTime.available_spots} spot${teeTime.available_spots !== 1 ? 's' : ''} available</span>` : ''}
+        `;
+    }
+    
+    // Show confirmation modal
+    if (callConfirmModal) {
+        callConfirmModal.classList.add('active');
+    }
+}
+
+// Function to hide call confirmation modal
+function hideCallConfirmModal() {
+    if (callConfirmModal) {
+        callConfirmModal.classList.remove('active');
+    }
+}
+
+// Function to initiate phone call
+function makePhoneCall() {
+    // Phone number for booking
+    const phoneNumber = '12102127572';
+    
+    // Initiate call
+    window.location.href = `tel:${phoneNumber}`;
+    
+    // Hide modals
+    hideCallConfirmModal();
+    hideTeeTimeModal();
+    
+    // Show success notification
+    const notification = document.createElement('div');
+    notification.style.position = 'fixed';
+    notification.style.top = '50%';
+    notification.style.left = '50%';
+    notification.style.transform = 'translate(-50%, -50%)';
+    notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
+    notification.style.color = 'white';
+    notification.style.padding = '20px';
+    notification.style.borderRadius = '8px';
+    notification.style.zIndex = '2000';
+    notification.style.textAlign = 'center';
+    notification.style.maxWidth = '90%';
+    notification.style.width = '400px';
+    notification.innerHTML = `
+        <h3 style="margin-top: 0;">Calling Pro Shop</h3>
+        <p>You're being connected to book your tee time at ${selectedCourse.name}.</p>
+        <p>Time selected: ${selectedTeeTime.formattedTime}</p>
+    `;
+    document.body.appendChild(notification);
+    
+    // Auto-remove notification after 5 seconds
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
+    }, 5000);
 }
 
 // Login modal functions
@@ -312,40 +721,7 @@ function loginUser(username, password) {
             hideLoginModal();
             
             if (selectedCourse) {
-                // Show notification that user has selected a course
-                const notification = document.createElement('div');
-                notification.style.position = 'fixed';
-                notification.style.top = '50%';
-                notification.style.left = '50%';
-                notification.style.transform = 'translate(-50%, -50%)';
-                notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
-                notification.style.color = 'white';
-                notification.style.padding = '20px';
-                notification.style.borderRadius = '8px';
-                notification.style.zIndex = '2000';
-                notification.style.textAlign = 'center';
-                notification.style.maxWidth = '90%';
-                notification.style.width = '400px';
-                notification.innerHTML = `
-                    <h3 style="margin-top: 0;">Successfully Logged In</h3>
-                    <p>You've selected ${selectedCourse.name}.</p>
-                    <p>In the future, we'll implement booking functionality here.</p>
-                    <button id="closeNotification" style="background-color: white; color: #2e7d32; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer;">Close</button>
-                `;
-                document.body.appendChild(notification);
-                
-                // Add event listener to close button
-                const closeButton = notification.querySelector('#closeNotification');
-                closeButton.addEventListener('click', () => {
-                    document.body.removeChild(notification);
-                });
-                
-                // Auto-remove notification after 5 seconds
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
-                    }
-                }, 5000);
+                showTeeTimeModal(selectedCourse);
             }
         } else {
             showMessage('No authentication token received', 'error');
@@ -604,6 +980,69 @@ document.addEventListener('DOMContentLoaded', function() {
                 hideLoginModal();
             }
         });
+    }
+    
+    // Tee time modal event listeners
+    if (closeTeeTimeModal) {
+        closeTeeTimeModal.addEventListener('click', hideTeeTimeModal);
+    }
+
+    if (teeTimeModal) {
+        teeTimeModal.addEventListener('click', function(e) {
+            if (e.target === teeTimeModal) {
+                hideTeeTimeModal();
+            }
+        });
+    }
+
+    if (prevMonth) {
+        prevMonth.addEventListener('click', function() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            generateCalendar(currentMonth, currentYear);
+        });
+    }
+
+    if (nextMonth) {
+        nextMonth.addEventListener('click', function() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            generateCalendar(currentMonth, currentYear);
+        });
+    }
+
+    if (backToCalendar) {
+        backToCalendar.addEventListener('click', function() {
+            if (dateSelectionView) dateSelectionView.style.display = 'block';
+            if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
+        });
+    }
+
+    // Call confirmation modal event listeners
+    if (closeCallConfirmModal) {
+        closeCallConfirmModal.addEventListener('click', hideCallConfirmModal);
+    }
+
+    if (callConfirmModal) {
+        callConfirmModal.addEventListener('click', function(e) {
+            if (e.target === callConfirmModal) {
+                hideCallConfirmModal();
+            }
+        });
+    }
+
+    if (cancelCallBtn) {
+        cancelCallBtn.addEventListener('click', hideCallConfirmModal);
+    }
+
+    if (makeCallBtn) {
+        makeCallBtn.addEventListener('click', makePhoneCall);
     }
     
     // Bind event listener for logout button
