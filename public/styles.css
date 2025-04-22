@@ -340,33 +340,76 @@ main {
     border: 1px solid #c8e6c9;
 }
 
-/* Calendar Styles */
-.calendar-header {
+/* Date range container styles */
+.date-range-container {
     display: flex;
-    justify-content: space-between;
+    overflow-x: auto;
+    padding: 10px 0;
+    gap: 8px;
+    scroll-behavior: smooth;
+}
+
+.day-box {
+    min-width: 80px;
+    height: 90px;
+    background-color: #f8f8f8;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.day-box:hover {
+    background-color: #e8f5e9;
+    transform: translateY(-2px);
+}
+
+.day-box.selected {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.day-box.today {
+    border: 2px solid #4CAF50;
+}
+
+.day-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.day-number {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.month-name {
+    font-size: 12px;
+    color: #666;
+}
+
+.day-box.selected .month-name {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Update calendar header for new date range display */
+.calendar-header {
+    text-align: center;
     margin-bottom: 15px;
 }
 
-.calendar-nav {
-    background: none;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 5px 12px;
-    cursor: pointer;
-    font-size: 16px;
+#calendarMonth {
+    font-size: 18px;
+    font-weight: 500;
 }
 
-.calendar-nav:hover {
-    background-color: #f5f5f5;
-}
-
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 5px;
-}
-
+/* Calendar Styles (original) */
 .weekday {
     text-align: center;
     font-weight: 500;
@@ -642,15 +685,6 @@ main {
     border-bottom: none;
 }
 
-.course-name {
-    font-weight: 500;
-}
-
-.date {
-    font-size: 14px;
-    color: #666;
-}
-
 .badge {
     padding: 4px 8px;
     border-radius: 4px;
@@ -679,6 +713,69 @@ main {
 .no-data h3 {
     margin-top: 0;
     margin-bottom: 10px;
+}
+
+/* Updated styles for the All Activity section */
+.round-stats {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.all-rounds-list {
+    list-style: none;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.round-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.round-item:last-child {
+    border-bottom: none;
+}
+
+.round-item .course-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.round-item .date {
+    font-size: 14px;
+    color: #666;
+}
+
+.round-item .badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Add scroll styling */
+.all-rounds-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.all-rounds-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.all-rounds-list::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.all-rounds-list::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
 }
 
 /* Footer */

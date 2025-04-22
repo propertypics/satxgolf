@@ -292,77 +292,85 @@ function hideTeeTimeModal() {
 }
 
 // Function to generate the calendar
-
-// Update the generateCalendar function to properly handle past dates
+// Updated function to generate a limited calendar (today + 8 days)
 function generateCalendar(month, year) {
     if (!calendarDays || !calendarMonth) return;
     
     // Clear previous calendar
     calendarDays.innerHTML = '';
     
-    // Update month display
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"];
-    calendarMonth.textContent = `${monthNames[month]} ${year}`;
-    
-    // Get first day of month and number of days
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // Create empty cells for days before first day of month
-    for (let i = 0; i < firstDay; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'day empty';
-        calendarDays.appendChild(emptyCell);
-    }
-    
-    // Create cells for each day of the month
+    // Get current date for reference
     const today = new Date();
-    // Set today to beginning of day for proper comparison
-    today.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0); // Set to beginning of day
     
-    const twoWeeksFromNow = new Date();
-    twoWeeksFromNow.setDate(today.getDate() + 14);
-    twoWeeksFromNow.setHours(23, 59, 59, 999);
+    // Calculate the end date (today + 8 days)
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + 8);
     
-    for (let i = 1; i <= daysInMonth; i++) {
-        const dayCell = document.createElement('div');
-        dayCell.className = 'day';
-        dayCell.textContent = i;
+    // Update month display - show date range instead of month/year
+    const options = { month: 'long', day: 'numeric' };
+    const startDateStr = today.toLocaleDateString('en-US', options);
+    const endDateStr = endDate.toLocaleDateString('en-US', options);
+    calendarMonth.textContent = `${startDateStr} - ${endDateStr}`;
+    
+    // Create a container for the date range
+    const dateRangeContainer = document.createElement('div');
+    dateRangeContainer.className = 'date-range-container';
+    
+    // Generate a simple list of dates instead of a calendar grid
+    for (let i = 0; i <= 8; i++) {
+        const currentDate = new Date(today);
+        currentDate.setDate(today.getDate() + i);
         
-        // Check if this day is valid for booking
-        const thisDate = new Date(year, month, i);
-        thisDate.setHours(0, 0, 0, 0); // Set to beginning of day for proper comparison
+        const dayBox = document.createElement('div');
+        dayBox.className = 'day-box available';
         
-        if (thisDate < today) {
-            // Past date - always disabled
-            dayCell.classList.add('disabled');
-        } else if (thisDate > twoWeeksFromNow) {
-            // More than 2 weeks in the future - also disabled
-            dayCell.classList.add('disabled');
-        } else {
-            // Available date
-            dayCell.classList.add('available');
-            
-            // Add click event to select this date
-            dayCell.addEventListener('click', () => {
-                selectDate(year, month, i);
+        // Add 'today' class if this is today
+        if (i === 0) {
+            dayBox.classList.add('today');
+        }
+        
+        // Format the date display
+        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayNum = currentDate.getDate();
+        const monthName = currentDate.toLocaleDateString('en-US', { month: 'short' });
+        
+        dayBox.innerHTML = `
+            <div class="day-name">${dayName}</div>
+            <div class="day-number">${dayNum}</div>
+            <div class="month-name">${monthName}</div>
+        `;
+        
+        // Calculate the date string for API (MM-DD-YYYY)
+        const apiDateStr = `${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${currentDate.getDate().toString().padStart(2, '0')}-${currentDate.getFullYear()}`;
+        
+        // Add click event to select this date
+        dayBox.addEventListener('click', () => {
+            // Remove 'selected' class from any previously selected date
+            document.querySelectorAll('.day-box.selected').forEach(el => {
+                el.classList.remove('selected');
             });
-        }
+            
+            // Add 'selected' class to this date
+            dayBox.classList.add('selected');
+            
+            // Select this date
+            selectDate(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), apiDateStr);
+        });
         
-        // Highlight today
-        if (thisDate.getDate() === today.getDate() && 
-            thisDate.getMonth() === today.getMonth() && 
-            thisDate.getFullYear() === today.getFullYear()) {
-            dayCell.classList.add('today');
-        }
-        
-        calendarDays.appendChild(dayCell);
+        dateRangeContainer.appendChild(dayBox);
     }
+    
+    // Replace the calendar grid with our date range
+    calendarDays.appendChild(dateRangeContainer);
+    
+    // Hide the month navigation buttons as they're not needed
+    if (prevMonth) prevMonth.style.display = 'none';
+    if (nextMonth) nextMonth.style.display = 'none';
 }
 
-// Function to select a date and show tee times
-function selectDate(year, month, day) {
+// Updated selectDate function to accept the pre-formatted date string
+function selectDate(year, month, day, apiDateStr) {
     // Format selected date for display
     const selectedDateObj = new Date(year, month, day);
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -381,12 +389,17 @@ function selectDate(year, month, day) {
     if (teeTimesList) teeTimesList.style.display = 'none';
     if (noTeeTimes) noTeeTimes.style.display = 'none';
     
-    // Format date for API request (MM-DD-YYYY)
-    const apiDateStr = `${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}-${year}`;
+    // Use the pre-formatted date string for API
+    // If not provided, format it here
+    if (!apiDateStr) {
+        apiDateStr = `${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}-${year}`;
+    }
     
     // Fetch tee times for this date
     fetchTeeTimes(selectedCourse.courseId, selectedCourse.facilityId, apiDateStr);
 }
+
+
 
 // Function to fetch tee times from API
 // Modified fetchTeeTimes function with better debugging
@@ -865,7 +878,8 @@ function showMessage(message, type) {
     }
 }
 
-// Function to initialize the stats page
+
+// Updated function to show all previous visits
 function initializeStatsPage() {
     console.log('Initializing stats page...');
     
@@ -922,7 +936,7 @@ function initializeStatsPage() {
         let membershipData = { name: 'No Membership', expires: 'N/A', purchased: 'N/A' };
         let hasPunchPass = false;
         let punchData = null;
-        let recentRounds = [];
+        let allRounds = [];
         
         if (loginData.passes) {
             const passIds = Object.keys(loginData.passes);
@@ -945,7 +959,7 @@ function initializeStatsPage() {
                             punchesUsed = pass.uses.filter(use => 
                                 use.rule_number === "2" && use.price_class_id === String(punchClassId)
                             ).length;
-                            recentRounds = pass.uses.map(use => {
+                            allRounds = pass.uses.map(use => {
                                 const isPunch = use.rule_number === "2" && use.price_class_id === String(punchClassId);
                                 let courseName = "Unknown Course";
                                 const teesheetId = use.teesheet_id;
@@ -962,10 +976,11 @@ function initializeStatsPage() {
                                 }
                                 return {
                                     date: formatDate(use.date),
+                                    rawDate: new Date(use.date), // For sorting
                                     course: courseName,
                                     isPunch: isPunch
                                 };
-                            }).sort((a, b) => new Date(b.date) - new Date(a.date));
+                            }).sort((a, b) => b.rawDate - a.rawDate); // Sort by date, newest first
                         }
                         punchData = {
                             used: punchesUsed,
@@ -1011,12 +1026,32 @@ function initializeStatsPage() {
             punchCard.style.display = 'none';
         }
         
-        if (recentRounds.length > 0) {
-            const recentFiveRounds = recentRounds.slice(0, 5);
+        // Rename the section to "All Activity" instead of "Recent Activity"
+        const activityHeader = recentActivity.closest('.stats-card').querySelector('h3');
+        if (activityHeader) {
+            activityHeader.textContent = 'All Activity';
+        }
+        
+        if (allRounds.length > 0) {
+            // Show all rounds instead of just the recent five
             recentActivity.innerHTML = `
-                <ul class="recent-list">
-                    ${recentFiveRounds.map(round => `
-                        <li class="recent-item ${round.isPunch ? 'punch' : ''}">
+                <div class="round-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Rounds:</span>
+                        <span>${allRounds.length}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Punch Rounds:</span>
+                        <span>${allRounds.filter(round => round.isPunch).length}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Paid Rounds:</span>
+                        <span>${allRounds.filter(round => !round.isPunch).length}</span>
+                    </div>
+                </div>
+                <ul class="all-rounds-list">
+                    ${allRounds.map(round => `
+                        <li class="round-item ${round.isPunch ? 'punch' : ''}">
                             <div>
                                 <div class="course-name">${round.course}</div>
                                 <div class="date">${round.date}</div>
@@ -1029,7 +1064,7 @@ function initializeStatsPage() {
                 </ul>
             `;
         } else {
-            recentActivity.innerHTML = '<p>No recent activity found.</p>';
+            recentActivity.innerHTML = '<p>No activity found.</p>';
         }
         
         loadingIndicator.style.display = 'none';
@@ -1045,6 +1080,9 @@ function initializeStatsPage() {
         `;
     }
 }
+
+//
+
 
 // Helper function to format dates
 function formatDate(dateStr) {
