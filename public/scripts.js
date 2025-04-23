@@ -878,8 +878,7 @@ function showMessage(message, type) {
     }
 }
 
-
-// Updated function to show all previous visits
+// Updated function to show all previous visits and loyalty points
 function initializeStatsPage() {
     console.log('Initializing stats page...');
     
@@ -930,7 +929,10 @@ function initializeStatsPage() {
         const userData = {
             name: `${loginData.first_name} ${loginData.last_name}`,
             email: loginData.email,
-            phone: loginData.phone_number || loginData.cell_phone_number || 'N/A'
+            phone: loginData.phone_number || loginData.cell_phone_number || 'N/A',
+            loyaltyPoints: loginData.loyalty_points || 0,
+            // Determine pricing category based on price_class_name
+            pricingCategory: loginData.price_class_name ? loginData.price_class_name : 'General Public'
         };
         
         let membershipData = { name: 'No Membership', expires: 'N/A', purchased: 'N/A' };
@@ -992,6 +994,7 @@ function initializeStatsPage() {
             }
         }
         
+        // Update membershipInfo to include loyalty points and pricing category
         membershipInfo.innerHTML = `
             <div class="stat-item">
                 <span class="stat-label">Name:</span>
@@ -1002,12 +1005,20 @@ function initializeStatsPage() {
                 <span>${membershipData.name}</span>
             </div>
             <div class="stat-item">
+                <span class="stat-label">Pricing Category:</span>
+                <span>${userData.pricingCategory}</span>
+            </div>
+            <div class="stat-item">
                 <span class="stat-label">Expires:</span>
                 <span>${membershipData.expires}</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">Purchase Date:</span>
                 <span>${membershipData.purchased}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Loyalty Points:</span>
+                <span>${userData.loyaltyPoints}</span>
             </div>
         `;
         
@@ -1080,6 +1091,7 @@ function initializeStatsPage() {
         `;
     }
 }
+
 
 //
 
