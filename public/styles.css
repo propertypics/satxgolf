@@ -839,3 +839,23 @@ footer {
         justify-content: space-between;
     }
 }
+
+.badge-standard {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.badge-loyalty {
+    background-color: #fff8e1;
+    color: #ff8f00;
+}
+
+.badge-promo {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.round-item.loyalty .badge,
+.round-item.promo .badge {
+    font-size: 11px;
+}
