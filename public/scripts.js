@@ -950,47 +950,48 @@ function initializeStatsPage() {
                 };
                 
                 if (pass.rules && pass.rules.length > 0) {
-                    const punchRule = pass.rules.find(rule => rule.rule_number === 2);
-                    if (punchRule) {
-                        hasPunchPass = true;
-                        let punchesUsed = 0;
-                        const punchClassId = punchRule.price_class_id;
-                        if (pass.uses && Array.isArray(pass.uses)) {
-                            punchesUsed = pass.uses.filter(use => 
-                                use.rule_number === "2" && use.price_class_id === String(punchClassId)
-                            ).length;
-                            allRounds = pass.uses.map(use => {
-                                const isPunch = use.rule_number === "2" && use.price_class_id === String(punchClassId);
-                                let courseName = "Unknown Course";
-                                const teesheetId = use.teesheet_id;
-                                switch(teesheetId) {
-                                    case "3564": courseName = "Brackenridge Park"; break;
-                                    case "3565": courseName = "Cedar Creek"; break;
-                                    case "3566": courseName = "Mission del Lago"; break;
-                                    case "3567": courseName = "Northern Hills"; break;
-                                    case "3568": courseName = "Olmos Basin"; break;
-                                    case "3569": courseName = "Riverside Championship"; break;
-                                    case "3570": courseName = "Riverside Teddy Bear"; break;
-                                    case "3572": courseName = "San Pedro Par 3"; break;
-                                    default: courseName = "Unknown Course";
-                                }
-                                return {
-                                    date: formatDate(use.date),
-                                    rawDate: new Date(use.date), // For sorting
-                                    course: courseName,
-                                    isPunch: isPunch
-                                };
-                            }).sort((a, b) => b.rawDate - a.rawDate); // Sort by date, newest first
-                        }
-                        punchData = {
-                            used: punchesUsed,
-                            total: 10,
-                            percent: (punchesUsed / 10) * 100
-                        };
+    const punchRule = pass.rules.find(rule => rule.rule_number === 2);
+    if (punchRule) {
+        // Only change here - check if pass name contains "Trailpass Plus"
+        if (pass.name && pass.name.includes("Trailpass Plus")) {
+            hasPunchPass = true;
+            let punchesUsed = 0;
+            const punchClassId = punchRule.price_class_id;
+            if (pass.uses && Array.isArray(pass.uses)) {
+                punchesUsed = pass.uses.filter(use =>
+                    use.rule_number === "2" && use.price_class_id === String(punchClassId)
+                ).length;
+                allRounds = pass.uses.map(use => {
+                    const isPunch = use.rule_number === "2" && use.price_class_id === String(punchClassId);
+                    let courseName = "Unknown Course";
+                    const teesheetId = use.teesheet_id;
+                    switch(teesheetId) {
+                        case "3564": courseName = "Brackenridge Park"; break;
+                        case "3565": courseName = "Cedar Creek"; break;
+                        case "3566": courseName = "Mission del Lago"; break;
+                        case "3567": courseName = "Northern Hills"; break;
+                        case "3568": courseName = "Olmos Basin"; break;
+                        case "3569": courseName = "Riverside Championship"; break;
+                        case "3570": courseName = "Riverside Teddy Bear"; break;
+                        case "3572": courseName = "San Pedro Par 3"; break;
+                        default: courseName = "Unknown Course";
                     }
-                }
+                    return {
+                        date: formatDate(use.date),
+                        rawDate: new Date(use.date), // For sorting
+                        course: courseName,
+                        isPunch: isPunch
+                    };
+                }).sort((a, b) => b.rawDate - a.rawDate); // Sort by date, newest first
             }
+            punchData = {
+                used: punchesUsed,
+                total: 10,
+                percent: (punchesUsed / 10) * 100
+            };
         }
+    }
+}
         
         membershipInfo.innerHTML = `
             <div class="stat-item">
