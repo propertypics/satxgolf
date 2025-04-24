@@ -412,8 +412,6 @@ function selectDate(year, month, day, apiDateStr) {
     fetchTeeTimes(selectedCourse.courseId, selectedCourse.facilityId, apiDateStr);
 }
 
-
-
 // Function to fetch tee times from API
 // Modified fetchTeeTimes function with better debugging
 function fetchTeeTimes(courseId, facilityId, dateStr) {
@@ -599,7 +597,6 @@ function showNoTeeTimesMessage(message) {
         noTeeTimes.innerHTML = `<p>${message}</p>`;
     }
 }
-
 
 // Function to display tee times
 function displayTeeTimes(teeTimesData) {
@@ -891,7 +888,6 @@ function showMessage(message, type) {
     }
 }
 
-
 // Updated function to show all previous visits
 function initializeStatsPage() {
     console.log('Initializing stats page...');
@@ -906,7 +902,6 @@ function initializeStatsPage() {
     
     if (!loadingIndicator || !statsContainer || !noDataMessage || !membershipInfo || !punchInfo || !punchCard || !recentActivity) {
         console.error('Missing required DOM elements for stats page');
-        // Try to show an error message on the page
         const mainElement = document.querySelector('main');
         if (mainElement) {
             mainElement.innerHTML = `
@@ -935,262 +930,234 @@ function initializeStatsPage() {
         `;
         return;
     }
-    //  
+    
     try {
-    const loginData = JSON.parse(loginDataStr);
-    console.log('Parsed login data for stats page');
-    
-    const userData = {
-        name: `${loginData.first_name} ${loginData.last_name}`,
-        email: loginData.email,
-        phone: loginData.phone_number || loginData.cell_phone_number || 'N/A'
-    };
-    
-    let membershipData = { name: 'No Membership', expires: 'N/A', purchased: 'N/A' };
-    let hasPunchPass = false;
-    let punchData = null;
-    let allRounds = [];
-    
-    // Round type counters
-    let roundCounts = {
-        total: 0,
-        punch: 0,
-        loyalty: 0,
-        promo: 0,
-        standard: 0
-    };
-    
-    if (loginData.passes) {
-        const passIds = Object.keys(loginData.passes);
-        if (passIds.length > 0) {
-            const passId = passIds[0];
-            const pass = loginData.passes[passId];
-            membershipData = {
-                name: pass.name || 'Unknown Membership',
-                expires: formatDate(pass.end_date) || 'N/A',
-                purchased: formatDate(pass.date_purchased) || 'N/A'
-            };
-            
-            // Create rule mapping
-            const ruleMapping = {};
-            if (pass.rules && Array.isArray(pass.rules)) {
-                pass.rules.forEach(rule => {
-                    ruleMapping[rule.rule_number] = {
-                        name: rule.name,
-                        priceClassId: rule.price_class_id,
-                        type: getRuleType(rule.name)
-                    };
-                });
-            }
-            
-            console.log('Rule mapping:', ruleMapping);
-            
-            // Check for punch pass eligibility
-            const isTrailPassPlus = membershipData.name.includes("Trail Pass Plus");
-            
-            // Process rounds and categorize them
-            if (pass.uses && Array.isArray(pass.uses)) {
-                // Count total rounds
-                roundCounts.total = pass.uses.length;
+        const loginData = JSON.parse(loginDataStr);
+        console.log('Parsed login data for stats page');
+        
+        const userData = {
+            name: `${loginData.first_name} ${loginData.last_name}`,
+            email: loginData.email,
+            phone: loginData.phone_number || loginData.cell_phone_number || 'N/A'
+        };
+        
+        let membershipData = { name: 'No Membership', expires: 'N/A', purchased: 'N/A' };
+        let hasPunchPass = false;
+        let punchData = null;
+        let allRounds = [];
+        
+        let roundCounts = {
+            total: 0,
+            punch: 0,
+            loyalty: 0,
+            promo: 0,
+            standard: 0
+        };
+        
+        if (loginData.passes) {
+            const passIds = Object.keys(loginData.passes);
+            if (passIds.length > 0) {
+                const passId = passIds[0];
+                const pass = loginData.passes[passId];
+                membershipData = {
+                    name: pass.name || 'Unknown Membership',
+                    expires: formatDate(pass.end_date) || 'N/A',
+                    purchased: formatDate(pass.date_purchased) || 'N/A'
+                };
                 
-                // Track punches for Trail Pass Plus members
-                if (isTrailPassPlus) {
-                    // Find the free round rule if it exists
-                    const freeRoundRule = pass.rules.find(rule => 
-                        rule.rule_number === 2 || rule.name.toLowerCase().includes("free")
-                    );
-                    
-                    if (freeRoundRule) {
-                        hasPunchPass = true;
-                        const punchClassId = freeRoundRule.price_class_id;
-                        
-                        // Count punch uses
-                        const punchUses = pass.uses.filter(use =>
-                            use.rule_number === String(freeRoundRule.rule_number) && 
-                            use.price_class_id === String(punchClassId)
-                        );
-                        
-                        roundCounts.punch = punchUses.length;
-                        
-                        punchData = {
-                            used: punchUses.length,
-                            total: 10,
-                            percent: (punchUses.length / 10) * 100
+                const ruleMapping = {};
+                if (pass.rules && Array.isArray(pass.rules)) {
+                    pass.rules.forEach(rule => {
+                        ruleMapping[rule.rule_number] = {
+                            name: rule.name,
+                            priceClassId: rule.price_class_id,
+                            type: getRuleType(rule.name)
                         };
-                    }
+                    });
                 }
                 
-                // Map all rounds with proper categorization
-                allRounds = pass.uses.map(use => {
-                    // Determine round type based on rule mapping
-                    const rule = ruleMapping[use.rule_number] || { 
-                        name: 'Unknown Rule', 
-                        type: 'standard' 
-                    };
+                console.log('Rule mapping:', ruleMapping);
+                
+                const isTrailPassPlus = membershipData.name.includes("Trail Pass Plus");
+                
+                if (pass.uses && Array.isArray(pass.uses)) {
+                    roundCounts.total = pass.uses.length;
                     
-                    let roundType = 'standard';
-                    let badgeText = 'Paid';
-                    
-                    // Special categorization for Trail Pass Plus punches
-                    if (isTrailPassPlus && rule.name.toLowerCase().includes('free') || 
-                        (use.rule_number === "2" && isTrailPassPlus)) {
-                        roundType = 'punch';
-                        badgeText = 'Punch';
+                    if (isTrailPassPlus) {
+                        const freeRoundRule = pass.rules.find(rule => 
+                            rule.rule_number === 2 || rule.name.toLowerCase().includes("free")
+                        );
                         
-                        // Already counted above, so no need to increment here
-                    } 
-                    // Loyalty rounds
-                    else if (rule.name.toLowerCase().includes('loyalty')) {
-                        roundType = 'loyalty';
-                        badgeText = 'Loyalty';
-                        roundCounts.loyalty++;
-                    } 
-                    // Promo rounds
-                    else if (rule.name.toLowerCase().includes('promo') || 
-                             rule.name.toLowerCase().includes('special')) {
-                        roundType = 'promo';
-                        badgeText = 'Promo';
-                        roundCounts.promo++;
-                    } 
-                    // Standard paid rounds
-                    else {
-                        roundCounts.standard++;
+                        if (freeRoundRule) {
+                            hasPunchPass = true;
+                            const punchClassId = freeRoundRule.price_class_id;
+                            
+                            const punchUses = pass.uses.filter(use =>
+                                use.rule_number === String(freeRoundRule.rule_number) && 
+                                use.price_class_id === String(punchClassId)
+                            );
+                            
+                            roundCounts.punch = punchUses.length;
+                            
+                            punchData = {
+                                used: punchUses.length,
+                                total: 10,
+                                percent: (punchUses.length / 10) * 100
+                            };
+                        }
                     }
                     
-                    // Map course names
-                    let courseName = "Unknown Course";
-                    const teesheetId = use.teesheet_id;
-                    switch(teesheetId) {
-                        case "3564": courseName = "Brackenridge Park"; break;
-                        case "3565": courseName = "Cedar Creek"; break;
-                        case "3566": courseName = "Mission del Lago"; break;
-                        case "3567": courseName = "Northern Hills"; break;
-                        case "3568": courseName = "Olmos Basin"; break;
-                        case "3569": courseName = "Riverside Championship"; break;
-                        case "3570": courseName = "Riverside Teddy Bear"; break;
-                        case "3572": courseName = "San Pedro Par 3"; break;
-                        default: courseName = "Unknown Course";
-                    }
-                    
-                    return {
-                        date: formatDate(use.date),
-                        rawDate: new Date(use.date), // For sorting
-                        course: courseName,
-                        type: roundType,
-                        ruleName: rule.name,
-                        badgeText: badgeText
-                    };
-                }).sort((a, b) => b.rawDate - a.rawDate); // Sort by date, newest first
+                    allRounds = pass.uses.map(use => {
+                        const rule = ruleMapping[use.rule_number] || { 
+                            name: 'Unknown Rule', 
+                            type: 'standard' 
+                        };
+                        
+                        let roundType = 'standard';
+                        let badgeText = 'Paid';
+                        
+                        if (isTrailPassPlus && rule.name.toLowerCase().includes('free') || 
+                            (use.rule_number === "2" && isTrailPassPlus)) {
+                            roundType = 'punch';
+                            badgeText = 'Punch';
+                        } else if (rule.name.toLowerCase().includes('loyalty')) {
+                            roundType = 'loyalty';
+                            badgeText = 'Loyalty';
+                            roundCounts.loyalty++;
+                        } else if (rule.name.toLowerCase().includes('promo') || 
+                                 rule.name.toLowerCase().includes('special')) {
+                            roundType = 'promo';
+                            badgeText = 'Promo';
+                            roundCounts.promo++;
+                        } else {
+                            roundCounts.standard++;
+                        }
+                        
+                        let courseName = "Unknown Course";
+                        const teesheetId = use.teesheet_id;
+                        switch(teesheetId) {
+                            case "3564": courseName = "Brackenridge Park"; break;
+                            case "3565": courseName = "Cedar Creek"; break;
+                            case "3566": courseName = "Mission del Lago"; break;
+                            case "3567": courseName = "Northern Hills"; break;
+                            case "3568": courseName = "Olmos Basin"; break;
+                            case "3569": courseName = "Riverside Championship"; break;
+                            case "3570": courseName = "Riverside Teddy Bear"; break;
+                            case "3572": courseName = "San Pedro Par 3"; break;
+                            default: courseName = "Unknown Course";
+                        }
+                        
+                        return {
+                            date: formatDate(use.date),
+                            rawDate: new Date(use.date),
+                            course: courseName,
+                            type: roundType,
+                            ruleName: rule.name,
+                            badgeText: badgeText
+                        };
+                    }).sort((a, b) => b.rawDate - a.rawDate);
+                }
             }
         }
-    }
-    
-    // Display membership info
-    membershipInfo.innerHTML = `
-        <div class="stat-item">
-            <span class="stat-label">Name:</span>
-            <span>${userData.name}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Membership:</span>
-            <span>${membershipData.name}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Expires:</span>
-            <span>${membershipData.expires}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Purchase Date:</span>
-            <span>${membershipData.purchased}</span>
-        </div>
-    `;
-    
-    // Get the membership name
-    const membershipName = membershipData.name || '';
-    // Check if it's a Trail Pass Plus membership
-    const isTrailpassPlus = membershipName.includes("Trail Pass Plus");
-    
-    // Only show punch card for Trail Pass Plus memberships
-    if (hasPunchPass && punchData && isTrailpassPlus) {
-        punchInfo.innerHTML = `
-            <div class="punch-container">
-                <span>${punchData.used}</span>
-                <div class="punch-bar">
-                    <div class="punch-progress" style="width: ${punchData.percent}%"></div>
-                    <div class="punch-text">${punchData.used} of ${punchData.total} Used</div>
-                </div>
-                <span>${punchData.total}</span>
+        
+        membershipInfo.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-label">Name:</span>
+                <span>${userData.name}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Membership:</span>
+                <span>${membershipData.name}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Expires:</span>
+                <span>${membershipData.expires}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Purchase Date:</span>
+                <span>${membershipData.purchased}</span>
             </div>
         `;
-    } else {
-        punchCard.style.display = 'none';
-    }
-    
-    // Rename the section to "All Activity" instead of "Recent Activity"
-    const activityHeader = recentActivity.closest('.stats-card').querySelector('h3');
-    if (activityHeader) {
-        activityHeader.textContent = 'All Activity';
-    }
-    
-    if (allRounds.length > 0) {
-        // Show all rounds with enhanced statistics
-        recentActivity.innerHTML = `
-            <div class="round-stats">
-                <div class="stat-item">
-                    <span class="stat-label">Total Rounds:</span>
-                    <span>${roundCounts.total}</span>
+        
+        const membershipName = membershipData.name || '';
+        const isTrailpassPlus = membershipName.includes("Trail Pass Plus");
+        
+        if (hasPunchPass && punchData && isTrailpassPlus) {
+            punchInfo.innerHTML = `
+                <div class="punch-container">
+                    <span>${punchData.used}</span>
+                    <div class="punch-bar">
+                        <div class="punch-progress" style="width: ${punchData.percent}%"></div>
+                        <div class="punch-text">${punchData.used} of ${punchData.total} Used</div>
+                    </div>
+                    <span>${punchData.total}</span>
                 </div>
-                ${isTrailpassPlus ? `
-                <div class="stat-item">
-                    <span class="stat-label">Punch Rounds:</span>
-                    <span>${roundCounts.punch}</span>
-                </div>` : ''}
-                <div class="stat-item">
-                    <span class="stat-label">Loyalty Rounds:</span>
-                    <span>${roundCounts.loyalty}</span>
+            `;
+        } else {
+            punchCard.style.display = 'none';
+        }
+        
+        const activityHeader = recentActivity.closest('.stats-card').querySelector('h3');
+        if (activityHeader) {
+            activityHeader.textContent = 'All Activity';
+        }
+        
+        if (allRounds.length > 0) {
+            recentActivity.innerHTML = `
+                <div class="round-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Rounds:</span>
+                        <span>${roundCounts.total}</span>
+                    </div>
+                    ${isTrailpassPlus ? `
+                    <div class="stat-item">
+                        <span class="stat-label">Punch Rounds:</span>
+                        <span>${roundCounts.punch}</span>
+                    </div>` : ''}
+                    <div class="stat-item">
+                        <span class="stat-label">Loyalty Rounds:</span>
+                        <span>${roundCounts.loyalty}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Promo Rounds:</span>
+                        <span>${roundCounts.promo}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Standard Paid:</span>
+                        <span>${roundCounts.standard}</span>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Promo Rounds:</span>
-                    <span>${roundCounts.promo}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Standard Paid:</span>
-                    <span>${roundCounts.standard}</span>
-                </div>
-            </div>
-            <ul class="all-rounds-list">
-                ${allRounds.map(round => `
-                    <li class="round-item ${round.type}">
-                        <div>
-                            <div class="course-name">${round.course}</div>
-                            <div class="date">${round.date}</div>
-                        </div>
-                        <span class="badge badge-${round.type}">
-                            ${round.badgeText}
-                        </span>
-                    </li>
-                `).join('')}
-            </ul>
+                <ul class="all-rounds-list">
+                    ${allRounds.map(round => `
+                        <li class="round-item ${round.type}">
+                            <div>
+                                <div class="course-name">${round.course}</div>
+                                <div class="date">${round.date}</div>
+                            </div>
+                            <span class="badge badge-${round.type}">
+                                ${round.badgeText}
+                            </span>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        } else {
+            recentActivity.innerHTML = '<p>No activity found.</p>';
+        }
+        
+        loadingIndicator.style.display = 'none';
+        statsContainer.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error parsing login data:', error);
+        loadingIndicator.style.display = 'none';
+        noDataMessage.style.display = 'block';
+        noDataMessage.innerHTML = `
+            <h3>Error Loading Stats</h3>
+            <p>There was a problem loading your golf data.</p>
         `;
-    } else {
-        recentActivity.innerHTML = '<p>No activity found.</p>';
     }
-    
-    loadingIndicator.style.display = 'none';
-    statsContainer.style.display = 'block';
-    
-} catch (error) {
-    console.error('Error parsing login data:', error);
-    loadingIndicator.style.display = 'none';
-    noDataMessage.style.display = 'block';
-    noDataMessage.innerHTML = `
-        <h3>Error Loading Stats</h3>
-        <p>There was a problem loading your golf data.</p>
-    `;
 }
-    
-//
-
 
 // Helper function to format dates
 function formatDate(dateStr) {
@@ -1349,4 +1316,3 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('API health check failed:', error);
         });
 });
-
