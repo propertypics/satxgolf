@@ -70,8 +70,10 @@ const DEFAULT_BOOKING_CLASS = "3272"; // Public - No Booking Fees
 // Mapping from pass/membership names to booking class IDs
 const membershipToBookingClass = {
     "Trailpass Plus": "50530",
+    "Trail Pass Plus/L2 with Punches": "50530",  // Add this exact match
     "Trailpass Plus - Senior/Military": "50529",
     "Level I / Trailpass": "3273",
+    "Trail Pass/L1": "3273",  // Add this exact match
     "Level I / Trailpass - Senior/Military": "3274",
     "Trailpass Pro": "50531",
     "Legacy Level II": "3275",
