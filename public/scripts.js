@@ -431,9 +431,14 @@ function fetchTeeTimes(courseId, facilityId, dateStr) {
     const testDateStr = `${(yesterdayObj.getMonth() + 1).toString().padStart(2, '0')}-${yesterdayObj.getDate().toString().padStart(2, '0')}-${yesterdayObj.getFullYear()}`;
     
     console.log(`Also testing with date: ${testDateStr}`);
+
+    // Get the user's booking class ID based on their membership
+    const primaryBookingClassId = getUserBookingClassId();
+    console.log(`Using primary booking class ID from user membership: ${primaryBookingClassId}`);
     
     // Try both booking classes
-    const bookingClasses = ["50530", "3272"];
+    // Define booking classes to try - first the user's actual class, then fall back to public
+    const bookingClasses = [primaryBookingClassId, "3272"];
     let currentAttempt = 0;
     const maxAttempts = bookingClasses.length;
     
