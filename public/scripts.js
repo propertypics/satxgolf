@@ -1014,7 +1014,7 @@ function initializeStatsPage() {
         // Get the membership name
 const membershipName = membershipData.name || '';
 // Check if it's a Trailpass Plus membership
-const isTrailpassPlus = membershipName.includes("Trailpass Plus");
+const isTrailpassPlus = membershipName.includes("Trail Pass Plus");
 
 // Only show punch card for Trailpass Plus memberships
 if (hasPunchPass && punchData && isTrailpassPlus) {
