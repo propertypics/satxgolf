@@ -1011,20 +1011,28 @@ function initializeStatsPage() {
             </div>
         `;
         
-        if (hasPunchPass && punchData) {
-            punchInfo.innerHTML = `
-                <div class="punch-container">
-                    <span>${punchData.used}</span>
-                    <div class="punch-bar">
-                        <div class="punch-progress" style="width: ${punchData.percent}%"></div>
-                        <div class="punch-text">${punchData.used} of ${punchData.total} Used</div>
-                    </div>
-                    <span>${punchData.total}</span>
-                </div>
-            `;
-        } else {
-            punchCard.style.display = 'none';
-        }
+        // Get the membership name
+const membershipName = membershipData.name || '';
+// Check if it's a Trailpass Plus membership
+const isTrailpassPlus = membershipName.includes("Trailpass Plus");
+
+// Only show punch card for Trailpass Plus memberships
+if (hasPunchPass && punchData && isTrailpassPlus) {
+    punchInfo.innerHTML = `
+        <div class="punch-container">
+            <span>${punchData.used}</span>
+            <div class="punch-bar">
+                <div class="punch-progress" style="width: ${punchData.percent}%"></div>
+                <div class="punch-text">${punchData.used} of ${punchData.total} Used</div>
+            </div>
+            <span>${punchData.total}</span>
+        </div>
+    `;
+} else {
+    punchCard.style.display = 'none';
+}
+
+
         
         // Rename the section to "All Activity" instead of "Recent Activity"
         const activityHeader = recentActivity.closest('.stats-card').querySelector('h3');
