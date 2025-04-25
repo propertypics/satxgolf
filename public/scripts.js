@@ -299,11 +299,22 @@ function showTeeTimeModal(course) {
 }
 
 // Function to hide the tee time modal
+
 function hideTeeTimeModal() {
+    console.log('Hiding tee time modal');
+    
+    // Hide the modal
     if (teeTimeModal) {
         teeTimeModal.classList.remove('active');
         document.body.style.overflow = '';
     }
+    
+    // Reset views after a short delay (to let the modal hiding animation complete)
+    setTimeout(() => {
+        // Switch back to date selection view for next time
+        if (dateSelectionView) dateSelectionView.style.display = 'block';
+        if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
+    }, 300);
 }
 
 // Function to generate the calendar
@@ -1525,6 +1536,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (backToCalendar) {
         backToCalendar.addEventListener('click', function() {
+            console.log('Back to calendar clicked');
             if (dateSelectionView) dateSelectionView.style.display = 'block';
             if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
         });
