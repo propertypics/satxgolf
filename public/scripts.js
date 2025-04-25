@@ -1246,7 +1246,10 @@ function initializeStatsPage() {
 
 // Function to create a booking
 function createBooking(bookingData) {
+    console.log('===== createBooking CALLED =====');
     console.log('Creating booking with data:', bookingData);
+    console.log('TeeTimeId:', bookingData.teeTimeId);
+    console.log('TeeTeeTime object:', selectedTeeTime);
     
     // Get authentication token
     const token = localStorage.getItem('jwt_token');
@@ -1618,6 +1621,9 @@ document.addEventListener('DOMContentLoaded', function() {
            
             
             // Here you would call your booking function
+            // Add this log right before calling createBooking
+            console.log('About to call createBooking function');
+            
             createBooking({
     		courseId: selectedCourse.courseId,
     		facilityId: selectedCourse.facilityId,
@@ -1626,6 +1632,7 @@ document.addEventListener('DOMContentLoaded', function() {
     		cart: cartOption === 'yes',
     		holes: parseInt(holesOption)
 });   
+                console.log('createBooking function call completed');
         });
     }
  
