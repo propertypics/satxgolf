@@ -1635,7 +1635,26 @@ document.addEventListener('DOMContentLoaded', function() {
        bookNowBtn.disabled = true;
        bookNowBtn.classList.add('loading');
        bookNowBtn.textContent = 'Booking...';
+    
+      // Manually get the form values
+        const playerCount = document.getElementById('playerCount').value;
+        const cartOption = document.querySelector('input[name="cart"]:checked').value;
+        const holesOption = document.querySelector('input[name="holes"]:checked').value;
+        
+        console.log('Form values:', {
+            playerCount,
+            cart: cartOption === 'yes',
+            holes: parseInt(holesOption)
     });
+      
+       createBooking({
+            courseId: selectedCourse.courseId,
+            facilityId: selectedCourse.facilityId,
+            teeTimeId: selectedTeeTime.teetime_id,
+            playerCount: parseInt(playerCount),
+            cart: cartOption === 'yes',
+            holes: parseInt(holesOption)
+        });
 }
 
 if (bookingModal) {
