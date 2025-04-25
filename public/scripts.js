@@ -13,6 +13,7 @@ function getElement(id, errorMessage) {
 
 // Booking modal elements
 const bookingModal = getElement('bookingModal');
+const cancelCallBtn = getElement('cancelCallBtn');
 const closeBookingModal = getElement('closeBookingModal');
 const cancelBookingBtn = getElement('cancelBookingBtn');
 console.log('Cancel booking button found:', !!cancelBookingBtn);
@@ -1588,6 +1589,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Cancel booking button clicked');
         hideBookingModal();
     });
+   
+    if (cancelCallBtn) {  // Add this block
+        cancelCallBtn.addEventListener('click', function() {
+        console.log('Cancel call button clicked');
+        hideBookingModal();
+    });
+}
 }
 
 
