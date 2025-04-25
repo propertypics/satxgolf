@@ -1601,41 +1601,32 @@ document.addEventListener('DOMContentLoaded', function() {
        // Add this new section for the booking form submission
     const bookingForm = getElement('bookingForm');
     
-    if (bookingForm) {
-        bookingForm.addEventListener('submit', function(e) {
-            e.preventDefault(); // Prevent default form submission
-            console.log('Booking form submitted');
-            
+   if (bookingForm) {
+    bookingForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log('Form submission event triggered');
+        
+        try {
             // Get form data
             const playerCount = document.getElementById('playerCount').value;
+            console.log('Player count:', playerCount);
+            
             const cartOption = document.querySelector('input[name="cart"]:checked').value;
+            console.log('Cart option:', cartOption);
+            
             const holesOption = document.querySelector('input[name="holes"]:checked').value;
+            console.log('Holes option:', holesOption);
             
-            console.log('Booking details:', {
-                playerCount,
-                cart: cartOption === 'yes',
-                holes: parseInt(holesOption),
-                course: selectedCourse,
-                teeTime: selectedTeeTime
-            });
-           
+            // This will help us see if we're getting to this point
+            console.log('All form data retrieved successfully');
             
-            // Here you would call your booking function
-            // Add this log right before calling createBooking
-            console.log('About to call createBooking function');
-            
-            createBooking({
-    		courseId: selectedCourse.courseId,
-    		facilityId: selectedCourse.facilityId,
-    		teeTimeId: selectedTeeTime.teetime_id,
-    		playerCount: parseInt(playerCount),
-    		cart: cartOption === 'yes',
-    		holes: parseInt(holesOption)
-});   
-                console.log('createBooking function call completed');
-        });
-    }
- 
+            // We won't call createBooking yet, just to isolate the issue
+            console.log('Form submission handler completed successfully');
+        } catch (error) {
+            console.error('Error in form submission handler:', error);
+        }
+    });
+} 
    const bookNowBtn = getElement('bookNowBtn');
 
    if (bookNowBtn) {
