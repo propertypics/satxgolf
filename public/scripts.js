@@ -1615,9 +1615,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 course: selectedCourse,
                 teeTime: selectedTeeTime
             });
+           
             
             // Here you would call your booking function
-            // createBooking({...}) or similar
+            createBooking({
+    		courseId: selectedCourse.courseId,
+    		facilityId: selectedCourse.facilityId,
+    		teeTimeId: selectedTeeTime.teetime_id,
+    		playerCount: parseInt(playerCount),
+    		cart: cartOption === 'yes',
+    		holes: parseInt(holesOption)
+});   
         });
     }
  
@@ -1626,6 +1634,9 @@ document.addEventListener('DOMContentLoaded', function() {
    if (bookNowBtn) {
        bookNowBtn.addEventListener('click', function() {
        console.log('Book Now button clicked');
+       bookNowBtn.disabled = true;
+       bookNowBtn.classList.add('loading');
+       bookNowBtn.textContent = 'Booking...';
     });
 }
 
