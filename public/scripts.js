@@ -1582,10 +1582,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (closeBookingModal) {
         closeBookingModal.addEventListener('click', hideBookingModal);
     }
-
     if (cancelBookingBtn) {
-        cancelBookingBtn.addEventListener('click', hideBookingModal);
-    }
+        cancelBookingBtn.addEventListener('click', function() {
+        console.log('Cancel booking button clicked');
+        hideBookingModal();
+    });
+}
+
 
 if (bookingModal) {
     bookingModal.addEventListener('click', function(e) {
