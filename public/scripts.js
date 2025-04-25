@@ -10,6 +10,12 @@ function getElement(id, errorMessage) {
     return element;
 }
 
+
+// Booking modal elements
+const bookingModal = getElement('bookingModal');
+const closeBookingModal = getElement('closeBookingModal');
+const cancelBookingBtn = getElement('cancelBookingBtn');
+
 // Get all important elements with error handling
 const courseGrid = getElement('courseGrid', 'Course grid element not found. Course display will fail.');
 const loadingIndicator = getElement('loadingIndicator');
@@ -63,6 +69,15 @@ let currentMonth = currentDate.getMonth();
 let currentYear = currentDate.getFullYear();
 let selectedTeeTime = null;
 let selectedCourse = null;
+
+
+// Function to hide booking modal
+function hideBookingModal() {
+    if (bookingModal) {
+        bookingModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
 
 // Default booking class if user doesn't have a specific membership
 const DEFAULT_BOOKING_CLASS = "3272"; // Public - No Booking Fees
@@ -1562,6 +1577,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (makeCallBtn) {
         makeCallBtn.addEventListener('click', makePhoneCall);
     }
+    
+    // Booking modal event listeners
+    if (closeBookingModal) {
+        closeBookingModal.addEventListener('click', hideBookingModal);
+    }
+
+    if (cancelBookingBtn) {
+        cancelBookingBtn.addEventListener('click', hideBookingModal);
+    }
+
+if (bookingModal) {
+    bookingModal.addEventListener('click', function(e) {
+        if (e.target === bookingModal) {
+            hideBookingModal();
+        }
+    });
+}
     
     // Bind event listener for logout button
     if (logoutBtn) {
