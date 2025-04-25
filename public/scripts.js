@@ -1595,6 +1595,39 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 }
 
+       // Add this new section for the booking form submission
+    const bookingForm = getElement('bookingForm');
+    
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
+            console.log('Booking form submitted');
+            
+            // Get form data
+            const playerCount = document.getElementById('playerCount').value;
+            const cartOption = document.querySelector('input[name="cart"]:checked').value;
+            const holesOption = document.querySelector('input[name="holes"]:checked').value;
+            
+            console.log('Booking details:', {
+                playerCount,
+                cart: cartOption === 'yes',
+                holes: parseInt(holesOption),
+                course: selectedCourse,
+                teeTime: selectedTeeTime
+            });
+            
+            // Here you would call your booking function
+            // createBooking({...}) or similar
+        });
+    }
+ 
+   const bookNowBtn = getElement('bookNowBtn');
+
+   if (bookNowBtn) {
+       bookNowBtn.addEventListener('click', function() {
+       console.log('Book Now button clicked');
+    });
+}
 
 if (bookingModal) {
     bookingModal.addEventListener('click', function(e) {
