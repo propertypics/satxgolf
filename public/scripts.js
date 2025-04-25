@@ -15,6 +15,7 @@ function getElement(id, errorMessage) {
 const bookingModal = getElement('bookingModal');
 const closeBookingModal = getElement('closeBookingModal');
 const cancelBookingBtn = getElement('cancelBookingBtn');
+console.log('Cancel booking button found:', !!cancelBookingBtn);
 
 // Get all important elements with error handling
 const courseGrid = getElement('courseGrid', 'Course grid element not found. Course display will fail.');
