@@ -705,6 +705,7 @@ function formatTimeString(hour, minute) {
     return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
 }
 
+
 // Function to select a tee time
 function selectTeeTime(teeTime, formattedTime) {
     selectedTeeTime = {
@@ -712,23 +713,73 @@ function selectTeeTime(teeTime, formattedTime) {
         formattedTime: formattedTime
     };
     
-    // Update confirmation details
-    if (callConfirmDetails) {
+    // Update booking details
+    if (bookingDetails) {
         const selectedDateObj = new Date(selectedDate.textContent);
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         
-        callConfirmDetails.innerHTML = `
+        bookingDetails.innerHTML = `
             <strong>${selectedDateObj.toLocaleDateString('en-US', options)} at ${formattedTime}</strong>
             <span>${selectedCourse.name}</span>
-            ${teeTime.available_spots ? `<span>${teeTime.available_spots} spot${teeTime.available_spots !== 1 ? 's' : ''} available</span>` : ''}
+            <span>${teeTime.available_spots} spot${teeTime.available_spots !== 1 ? 's' : ''} available</span>
         `;
     }
     
-    // Show confirmation modal
-    if (callConfirmModal) {
-        callConfirmModal.classList.add('active');
+    // Determine if we should show booking form or call notice
+    const isSinglePlayerOpenTime = teeTime.available_spots === 4;
+    
+    // Show/hide appropriate containers
+    if (bookingFormContainer) bookingFormContainer.style.display = isSinglePlayerOpenTime ? 'none' : 'block';
+    if (callNoticeContainer) callNoticeContainer.style.display = isSinglePlayerOpenTime ? 'block' : 'none';
+    
+    // Update player count dropdown to limit by available spots
+    updatePlayerCountOptions(teeTime.available_spots);
+    
+    // Show or hide holes selector based on the course
+    toggleHolesSelector(selectedCourse.facilityId);
+    
+    // Show booking modal
+    if (bookingModal) {
+        bookingModal.classList.add('active');
     }
 }
+
+// Function to update player count options based on available spots
+function updatePlayerCountOptions(availableSpots) {
+    const playerCountSelect = document.getElementById('playerCount');
+    if (!playerCountSelect) return;
+    
+    // Clear existing options
+    playerCountSelect.innerHTML = '';
+    
+    // Add options based on available spots
+    for (let i = 1; i <= Math.min(4, availableSpots); i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i === 1 ? '1 Player' : `${i} Players`;
+        playerCountSelect.appendChild(option);
+    }
+}
+
+// Function to toggle holes selector based on course
+function toggleHolesSelector(facilityId) {
+    const holesSelector = document.getElementById('holesSelector');
+    if (!holesSelector) return;
+    
+    // Check if this is a par 3 course (San Pedro or Teddy Bear)
+    const isPar3Course = ['3570', '3572'].includes(facilityId);
+    
+    // Show/hide holes selector
+    holesSelector.style.display = isPar3Course ? 'none' : 'block';
+    
+    // If it's a par 3, set holes to 9 by default
+    if (isPar3Course) {
+        const nineHolesRadio = document.querySelector('input[name="holes"][value="9"]');
+        if (nineHolesRadio) nineHolesRadio.checked = true;
+    }
+}
+
+
 
 // Function to hide call confirmation modal
 function hideCallConfirmModal() {
@@ -1165,6 +1216,222 @@ function initializeStatsPage() {
         `;
     }
 }
+
+// Function to create a booking
+function createBooking(bookingData) {
+    console.log('Creating booking with data:', bookingData);
+    
+    // Get authentication token
+    const token = localStorage.getItem('jwt_token');
+    const cookies = localStorage.getItem('foreup_cookies');
+    
+    if (!token) {
+        showBookingError('Authentication required. Please log in again.');
+        return;
+    }
+    
+    // First, create a pending reservation
+    fetch(`${API_BASE_URL}/api/pending-reservation`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Bearer ${token}`,
+            'X-ForeUp-Cookies': cookies || ''
+        },
+        body: new URLSearchParams({
+            course_id: bookingData.courseId,
+            teesheet_id: bookingData.facilityId,
+            teetime_id: bookingData.teeTimeId,
+            player_count: bookingData.playerCount,
+            holes: bookingData.holes,
+            carts: bookingData.cart ? bookingData.playerCount : 0,
+            booking_class: getUserBookingClassId()
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Pending reservation response:', data);
+        
+        if (data.error) {
+            showBookingError(data.message || 'Failed to create reservation');
+            return;
+        }
+        
+        if (!data.pendingReservationId) {
+            showBookingError('No reservation ID received');
+            return;
+        }
+        
+        // Complete the reservation
+        completeReservation(data.pendingReservationId, bookingData);
+    })
+    .catch(error => {
+        console.error('Error creating pending reservation:', error);
+        showBookingError('Failed to connect to booking service');
+    });
+}
+
+// Function to complete a reservation
+function completeReservation(pendingReservationId, bookingData) {
+    console.log('Completing reservation:', pendingReservationId);
+    
+    // Get authentication token
+    const token = localStorage.getItem('jwt_token');
+    const cookies = localStorage.getItem('foreup_cookies');
+    
+    // Call the complete-reservation endpoint
+    fetch(`${API_BASE_URL}/api/complete-reservation`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'X-ForeUp-Cookies': cookies || ''
+        },
+        body: JSON.stringify({
+            pending_reservation_id: pendingReservationId,
+            course_id: bookingData.courseId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Reservation completion response:', data);
+        
+        // Reset booking form button
+        const bookNowBtn = document.getElementById('bookNowBtn');
+        if (bookNowBtn) {
+            bookNowBtn.disabled = false;
+            bookNowBtn.classList.remove('loading');
+            bookNowBtn.textContent = 'Book Now';
+        }
+        
+        if (data.error) {
+            showBookingError(data.message || 'Failed to complete reservation');
+            return;
+        }
+        
+        // Show success message and store booking
+        showBookingSuccess(pendingReservationId, data);
+        storeBookingInLocalStorage(pendingReservationId, bookingData, data);
+        
+        // Hide booking modal after success
+        hideBookingModal();
+    })
+    .catch(error => {
+        console.error('Error completing reservation:', error);
+        showBookingError('Failed to finalize booking');
+        
+        // Reset booking form button
+        const bookNowBtn = document.getElementById('bookNowBtn');
+        if (bookNowBtn) {
+            bookNowBtn.disabled = false;
+            bookNowBtn.classList.remove('loading');
+            bookNowBtn.textContent = 'Book Now';
+        }
+    });
+}
+
+// Function to show booking error
+function showBookingError(message) {
+    // Create notification 
+    const notification = document.createElement('div');
+    notification.style.position = 'fixed';
+    notification.style.top = '50%';
+    notification.style.left = '50%';
+    notification.style.transform = 'translate(-50%, -50%)';
+    notification.style.backgroundColor = 'rgba(198, 40, 40, 0.9)';
+    notification.style.color = 'white';
+    notification.style.padding = '20px';
+    notification.style.borderRadius = '8px';
+    notification.style.zIndex = '2000';
+    notification.style.textAlign = 'center';
+    notification.style.maxWidth = '90%';
+    notification.style.width = '400px';
+    notification.innerHTML = `
+        <h3 style="margin-top: 0;">Booking Failed</h3>
+        <p>${message}</p>
+        <button id="closeErrorNotification" style="background-color: white; color: #c62828; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer;">Close</button>
+    `;
+    document.body.appendChild(notification);
+    
+    // Add event listener to close button
+    notification.querySelector('#closeErrorNotification').addEventListener('click', () => {
+        document.body.removeChild(notification);
+    });
+    
+    // Auto-remove after 7 seconds
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
+    }, 7000);
+}
+
+// Function to show booking success
+function showBookingSuccess(reservationId, data) {
+    // Create notification
+    const notification = document.createElement('div');
+    notification.style.position = 'fixed';
+    notification.style.top = '50%';
+    notification.style.left = '50%';
+    notification.style.transform = 'translate(-50%, -50%)';
+    notification.style.backgroundColor = 'rgba(46, 125, 50, 0.9)';
+    notification.style.color = 'white';
+    notification.style.padding = '20px';
+    notification.style.borderRadius = '8px';
+    notification.style.zIndex = '2000';
+    notification.style.textAlign = 'center';
+    notification.style.maxWidth = '90%';
+    notification.style.width = '400px';
+    notification.innerHTML = `
+        <h3 style="margin-top: 0;">Booking Confirmed!</h3>
+        <p>Your tee time has been successfully booked.</p>
+        <p style="margin-top: 10px; font-size: 14px;">Confirmation #: ${reservationId}</p>
+        <p style="margin-top: 5px; font-size: 14px;">${selectedCourse.name} at ${selectedTeeTime.formattedTime}</p>
+        <button id="closeSuccessNotification" style="background-color: white; color: #2e7d32; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer;">Close</button>
+    `;
+    document.body.appendChild(notification);
+    
+    // Add event listener to close button
+    notification.querySelector('#closeSuccessNotification').addEventListener('click', () => {
+        document.body.removeChild(notification);
+    });
+    
+    // Auto-remove after 7 seconds
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
+    }, 7000);
+}
+
+// Function to store booking in localStorage
+function storeBookingInLocalStorage(reservationId, bookingData, responseData) {
+    // Get existing bookings or initialize empty array
+    const existingBookingsStr = localStorage.getItem('user_bookings');
+    const existingBookings = existingBookingsStr ? JSON.parse(existingBookingsStr) : [];
+    
+    // Create new booking object
+    const newBooking = {
+        id: reservationId,
+        date: selectedDate.textContent,
+        time: selectedTeeTime.formattedTime,
+        course: selectedCourse.name,
+        courseId: selectedCourse.courseId,
+        facilityId: selectedCourse.facilityId,
+        players: bookingData.playerCount,
+        cart: bookingData.cart,
+        holes: bookingData.holes,
+        createdAt: new Date().toISOString(),
+        responseData: responseData
+    };
+    
+    // Add to existing bookings
+    existingBookings.push(newBooking);
+    
+    // Save back to localStorage
+    localStorage.setItem('user_bookings', JSON.stringify(existingBookings));
+}
+
 
 // Helper function to format dates
 function formatDate(dateStr) {

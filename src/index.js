@@ -79,6 +79,17 @@ async function handleRequest(request) {
   }
   
   try {
+  
+    // Handle request for creating a pending reservation
+    if (path === "/api/pending-reservation") {
+        return await handlePendingReservationRequest(request);
+    }
+
+    // Handle request for completing a reservation
+    if (path === "/api/complete-reservation") {
+  	return await handleCompleteReservationRequest(request);
+    }
+
     // Handle login requests
     if (path === "/api/login") {
       return await handleLoginRequest(request);
@@ -227,6 +238,7 @@ async function handleLoginRequest(request) {
     return errorResponse(`Login failed: ${error.message}`);
   }
 }
+
 
 // Handle tee time requests
 
@@ -441,6 +453,175 @@ function getSanAntonioCourses() {
       facilityId: "3572"
     }
   ];
+}
+
+// Handle creating a pending reservation
+async function handlePendingReservationRequest(request) {
+  try {
+    // Verify this is a POST request
+    if (request.method !== "POST") {
+      return errorResponse("Method not allowed. Use POST for creating reservations.", 405);
+    }
+    
+    // Get the form data from the request
+    let formData;
+    try {
+      const requestText = await request.text();
+      debug("Received pending reservation request data", requestText);
+      
+      // Parse the form-encoded data
+      formData = new URLSearchParams(requestText);
+    } catch (error) {
+      debug("Error parsing request data", error);
+      return errorResponse("Invalid request data", 400);
+    }
+    
+    // Get JWT token and cookies from the request headers
+    const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const cookies = request.headers.get("X-ForeUp-Cookies");
+    
+    if (!jwt) {
+      debug("No JWT token found in request");
+      return errorResponse("Authentication required", 401);
+    }
+    
+    // Set up the request to ForeUp
+    const pendingReservationUrl = "https://foreupsoftware.com/index.php/api/booking/pending_reservation";
+    
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "Accept": "*/*",
+      "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
+      "Origin": "https://foreupsoftware.com",
+      "Referer": "https://foreupsoftware.com/index.php/booking/",
+      "api-key": "no_limits",
+      "x-fu-golfer-location": "foreup",
+      "x-requested-with": "XMLHttpRequest",
+      "x-authorization": `Bearer ${jwt}`
+    };
+    
+    if (cookies) {
+      headers["Cookie"] = cookies;
+    }
+    
+    debug("Sending pending reservation request to ForeUp", {
+      url: pendingReservationUrl,
+      headers: headers,
+      formData: formData.toString()
+    });
+    
+    // Make the request to ForeUp
+    const response = await fetch(pendingReservationUrl, {
+      method: "POST",
+      headers: headers,
+      body: formData
+    });
+    
+    // Get the response text
+    const responseText = await response.text();
+    debug("ForeUp pending reservation response", responseText);
+    
+    // Parse the response as JSON if possible
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (error) {
+      debug("Error parsing ForeUp response", error);
+      return errorResponse("Invalid response from booking service", 502);
+    }
+    
+    // Return the response with CORS headers
+    return jsonResponse(responseData, response.status);
+  } catch (error) {
+    debug("Error creating pending reservation", error);
+    return errorResponse(`Failed to create pending reservation: ${error.message}`);
+  }
+}
+
+// Handle completing a reservation
+async function handleCompleteReservationRequest(request) {
+  try {
+    // Verify this is a POST request
+    if (request.method !== "POST") {
+      return errorResponse("Method not allowed. Use POST for completing reservations.", 405);
+    }
+    
+    // Get the JSON data from the request
+    let requestData;
+    try {
+      requestData = await request.json();
+      debug("Received reservation completion request data", requestData);
+    } catch (error) {
+      debug("Error parsing request JSON", error);
+      return errorResponse("Invalid JSON in request body", 400);
+    }
+    
+    // Get JWT token and cookies from the request headers
+    const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const cookies = request.headers.get("X-ForeUp-Cookies");
+    
+    if (!jwt) {
+      debug("No JWT token found in request");
+      return errorResponse("Authentication required", 401);
+    }
+    
+    // Ensure required fields are present
+    if (!requestData.pending_reservation_id || !requestData.course_id) {
+      debug("Missing required fields in request", requestData);
+      return errorResponse("Missing required fields: pending_reservation_id and course_id are required", 400);
+    }
+    
+    // Set up the request to ForeUp
+    const reservationUrl = "https://foreupsoftware.com/index.php/api/booking/users/reservations";
+    
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/javascript, */*; q=0.01",
+      "User-Agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
+      "Origin": "https://foreupsoftware.com",
+      "Referer": "https://foreupsoftware.com/index.php/booking/",
+      "api-key": "no_limits",
+      "x-fu-golfer-location": "foreup",
+      "x-requested-with": "XMLHttpRequest",
+      "x-authorization": `Bearer ${jwt}`
+    };
+    
+    if (cookies) {
+      headers["Cookie"] = cookies;
+    }
+    
+    debug("Sending reservation completion request to ForeUp", {
+      url: reservationUrl,
+      headers: headers,
+      requestData: JSON.stringify(requestData)
+    });
+    
+    // Make the request to ForeUp
+    const response = await fetch(reservationUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(requestData)
+    });
+    
+    // Get the response text
+    const responseText = await response.text();
+    debug("ForeUp reservation completion response", responseText);
+    
+    // Parse the response as JSON if possible
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (error) {
+      debug("Error parsing ForeUp response", error);
+      return errorResponse("Invalid response from booking service", 502);
+    }
+    
+    // Return the response with CORS headers
+    return jsonResponse(responseData, response.status);
+  } catch (error) {
+    debug("Error completing reservation", error);
+    return errorResponse(`Failed to complete reservation: ${error.message}`);
+  }
 }
 
 // Helper function to get formatted date

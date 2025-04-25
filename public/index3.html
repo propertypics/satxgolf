@@ -131,35 +131,70 @@
         </div>
     </div>
 
-    <!-- Call Confirmation Modal -->
-    <div class="modal-overlay" id="callConfirmModal">
-        <div class="modal call-confirm-modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Book Your Tee Time</h3>
-                <button class="close-modal" id="closeCallConfirmModal">&times;</button>
+    
+<!-- Booking Confirmation Modal -->
+<div class="modal-overlay" id="bookingModal">
+    <div class="modal booking-modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Book Your Tee Time</h3>
+            <button class="close-modal" id="closeBookingModal">&times;</button>
+        </div>
+        
+        <div class="modal-content">
+            <div class="tee-time-details" id="bookingDetails">
+                <strong>Monday, April 22, 2025 at 8:30 AM</strong>
+                <span>Brackenridge Park</span>
+                <span>4 spots available</span>
             </div>
             
-            <div class="modal-content">
-                <p>Call the pro shop to book this tee time:</p>
-                <div class="tee-time-details" id="callConfirmDetails">
-                    <strong>Monday, April 22, 2025 at 8:30 AM</strong>
-                    <span>Brackenridge Park</span>
-                </div>
-                
-                <div class="call-actions">
-                    <button id="cancelCallBtn" class="secondary-btn">Cancel</button>
-                    <button id="makeCallBtn" class="call-btn">Call Now</button>
+            <!-- Conditional content - show either booking form or call notice -->
+            <div id="bookingFormContainer">
+                <form id="bookingForm">
+                    <div class="form-group">
+                        <label>Number of Players</label>
+                        <div class="number-selector">
+                            <select id="playerCount">
+                                <option value="1">1 Player</option>
+                                <option value="2">2 Players</option>
+                                <option value="3">3 Players</option>
+                                <option value="4">4 Players</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Cart?</label>
+                        <div class="option-selector">
+                            <label><input type="radio" name="cart" value="yes"> Yes</label>
+                            <label><input type="radio" name="cart" value="no" checked> No</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="holesSelector">
+                        <label>Holes</label>
+                        <div class="option-selector">
+                            <label><input type="radio" name="holes" value="9"> 9 Holes</label>
+                            <label><input type="radio" name="holes" value="18" checked> 18 Holes</label>
+                        </div>
+                    </div>
+                    
+                    <div class="booking-actions">
+                        <button type="button" id="cancelBookingBtn" class="secondary-btn">Cancel</button>
+                        <button type="submit" id="bookNowBtn" class="book-btn">Book Now</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div id="callNoticeContainer" style="display: none;">
+                <p>Single players need to call the pro shop to book completely open tee times.</p>
+                <div class="booking-actions">
+                    <button type="button" id="cancelCallBtn" class="secondary-btn">Cancel</button>
+                    <button type="button" id="makeCallBtn" class="call-btn">Call Now</button>
                 </div>
             </div>
         </div>
     </div>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 SATX Golf - Alamo City Golf Trail</p>
-        </div>
-    </footer>
-    
+</div>
     <!-- Version Tag -->
     <div class="version-tag">v1.0.7</div>
     
