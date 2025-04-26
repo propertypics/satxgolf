@@ -1,7 +1,7 @@
 const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev";
-const APP_VERSION = "1.0.9"; // Make sure this matches or is updated
+const APP_VERSION = "1.0.10"; // Updated version
 
-// Helper function to safely get elements and log errors if they're not found
+// Helper function to safely get elements
 function getElement(id, errorMessage, isCritical = true) {
     const element = document.getElementById(id);
     if (!element && isCritical) {
@@ -12,12 +12,10 @@ function getElement(id, errorMessage, isCritical = true) {
     return element;
 }
 
-// Get all important elements with error handling
-// Core page elements
-const courseGrid = getElement('courseGrid', 'Course grid element not found. Course display will fail.', false); // Might not be on stats page
-const loadingIndicator = getElement('loadingIndicator', 'Loading indicator not found', false); // Might not be on every page
-
-// Login elements
+// --- Get DOM Elements ---
+// ... (Keep all the getElement calls from the previous full script version) ...
+const courseGrid = getElement('courseGrid', 'Course grid element not found. Course display will fail.', false);
+const loadingIndicator = getElement('loadingIndicator', 'Loading indicator not found', false);
 const loginModal = getElement('loginModal', 'Login modal overlay not found');
 const closeLoginModal = getElement('closeLoginModal', 'Close login modal button not found');
 const loginForm = getElement('loginForm', 'Login form not found');
@@ -26,8 +24,6 @@ const userInfo = getElement('userInfo', 'User info display area not found');
 const userName = getElement('userName', 'User name display span not found');
 const logoutBtn = getElement('logoutBtn', 'Logout button not found');
 const statsLink = getElement('statsLink', 'Stats link not found');
-
-// Tee time modal elements
 const teeTimeModal = getElement('teeTimeModal', 'Tee time modal overlay not found');
 const closeTeeTimeModal = getElement('closeTeeTimeModal', 'Close tee time modal button not found');
 const teeTimeModalTitle = getElement('teeTimeModalTitle', 'Tee time modal title not found');
@@ -42,470 +38,64 @@ const selectedDate = getElement('selectedDate', 'Selected date display not found
 const teeTimesList = getElement('teeTimesList', 'Tee times list container not found');
 const teeTimesLoading = getElement('teeTimesLoading', 'Tee times loading indicator not found');
 const noTeeTimes = getElement('noTeeTimes', 'No tee times message not found');
-
-// Booking modal elements
 const bookingModal = getElement('bookingModal', 'Booking modal overlay not found');
 const closeBookingModal = getElement('closeBookingModal', 'Close booking modal button not found');
 const bookingDetails = getElement('bookingDetails', 'Booking details display area not found');
 const bookingFormContainer = getElement('bookingFormContainer', 'Booking form container not found');
 const callNoticeContainer = getElement('callNoticeContainer', 'Call notice container not found');
-const bookingForm = getElement('bookingForm', 'Booking form element not found'); // Keep getting this, even if not using submit listener
-const playerCountSelect = getElement('playerCount', 'Player count select not found'); // Get specific form elements
+const bookingForm = getElement('bookingForm', 'Booking form element not found');
+const playerCountSelect = getElement('playerCount', 'Player count select not found');
 const holesSelector = getElement('holesSelector', 'Holes selector div not found');
 const cancelBookingBtn = getElement('cancelBookingBtn', 'Cancel booking button not found');
-const bookNowBtn = getElement('bookNowBtn', 'Book Now button not found'); // CRITICAL for booking
-
-// Call confirmation elements (if applicable)
+const bookNowBtn = getElement('bookNowBtn', 'Book Now button not found');
 const callConfirmModal = getElement('callConfirmModal', 'Call confirm modal not found', false);
 const closeCallConfirmModal = getElement('closeCallConfirmModal', 'Close call confirm button not found', false);
 const callConfirmDetails = getElement('callConfirmDetails', 'Call confirm details not found', false);
-const cancelCallBtn = getElement('cancelCallBtn', 'Cancel call button not found', false); // Shared ID? Check HTML. Assumed unique for now.
-const makeCallBtn = getElement('makeCallBtn', 'Make call button not found', false); // Shared ID? Check HTML. Assumed unique for now.
+const cancelCallBtn = getElement('cancelCallBtn', 'Cancel call button not found', false);
+const makeCallBtn = getElement('makeCallBtn', 'Make call button not found', false);
 
-// Check if the crucial booking button was found
-if (bookNowBtn) {
-    console.log('DEBUG: bookNowBtn element successfully found.');
-} else {
-    // This is a major problem if booking is expected
-    console.error('DEBUG: bookNowBtn element WAS NOT FOUND. Booking will fail.');
-}
-
-
-// Course images mapping
-const courseImages = {
-    "Brackenridge Park": "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "Cedar Creek": "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "Mission del Lago": "https://images.unsplash.com/photo-1592919505780-303950717480?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "Northern Hills": "https://images.unsplash.com/photo-1563299796-17596ed6b017?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "Olmos Basin": "https://images.unsplash.com/photo-1591123120675-6f7f1aae0e5b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "Riverside 18": "https://images.unsplash.com/photo-1600170034071-d53e525296d7?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "The Teddy Bear Par 3": "https://images.unsplash.com/photo-1580236580881-2e91a67acd59?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80",
-    "San Pedro Par 3": "https://images.unsplash.com/photo-1609198092458-38a293c7ac4b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
-};
-
-// State variables
+// --- State Variables ---
 let currentDate = new Date();
 let currentMonth = currentDate.getMonth();
 let currentYear = currentDate.getFullYear();
-let selectedTeeTime = null;
+let selectedTeeTime = null; // Will store the full object from the tee time list
 let selectedCourse = null;
 
-// Default booking class if user doesn't have a specific membership
-const DEFAULT_BOOKING_CLASS = "3272"; // Public - No Booking Fees
-
-// Mapping from pass/membership names to booking class IDs
-const membershipToBookingClass = {
-    "Trailpass Plus": "50530",
-    "Trail Pass Plus/L2 with Punches": "50530",
-    "Trailpass Plus - Senior/Military": "50529",
-    "Level I / Trailpass": "3273",
-    "Trail Pass/L1": "3273",
-    "Level I / Trailpass - Senior/Military": "3274",
-    "Trailpass Pro": "50531",
-    "Legacy Level II": "3275",
-    "Legacy Level II - Senior/Military": "3276",
-    "Legacy Die Hard": "5866"
-};
+// --- Constants & Mappings ---
+const DEFAULT_BOOKING_CLASS = "3272";
+const membershipToBookingClass = { /* ... keep your mappings ... */ };
+const courseImages = { /* ... keep your image mappings ... */ };
 
 // --- Modal Functions ---
-
-function showModal(modalElement) {
-    if (modalElement) {
-        modalElement.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-
-function hideModal(modalElement) {
-    if (modalElement) {
-        modalElement.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-}
-
+function showModal(modalElement) { /* ... */ }
+function hideModal(modalElement) { /* ... */ }
 function hideLoginModal() { hideModal(loginModal); }
 function showLoginModal() { showModal(loginModal); }
-function hideTeeTimeModal() {
-    hideModal(teeTimeModal);
-     // Reset views after a short delay
-    setTimeout(() => {
-        if (dateSelectionView) dateSelectionView.style.display = 'block';
-        if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
-    }, 300);
-}
-// showTeeTimeModal defined later as it depends on generateCalendar
+function hideTeeTimeModal() { /* ... includes setTimeout to reset views ... */ }
 function hideBookingModal() { hideModal(bookingModal); }
-function showBookingModal() { showModal(bookingModal); } // Potentially needed if opening directly
+function showBookingModal() { showModal(bookingModal); }
 function hideCallConfirmModal() { hideModal(callConfirmModal); }
-function showCallConfirmModal() { showModal(callConfirmModal); } // Potentially needed
-
+function showCallConfirmModal() { showModal(callConfirmModal); }
 
 // --- Login/Auth Functions ---
-
-function checkLogin() {
-    const token = localStorage.getItem('jwt_token');
-    const storedName = localStorage.getItem('user_name');
-
-    if (token) {
-        if (storedName && userName) {
-            userName.textContent = storedName;
-        }
-        if (userInfo) userInfo.style.display = 'flex';
-        if (statsLink) statsLink.style.display = 'block';
-        return true;
-    }
-    if (userInfo) userInfo.style.display = 'none'; // Hide if not logged in
-    if (statsLink) statsLink.style.display = 'none'; // Hide if not logged in
-    return false;
-}
-
-function loginUser(username, password) {
-    if (!loginMessage || !loginForm) return;
-
-    loginMessage.style.display = 'none';
-    const loginBtnElement = loginForm.querySelector('.login-btn'); // More specific query
-    if (!loginBtnElement) return;
-
-    const originalText = loginBtnElement.textContent;
-    loginBtnElement.textContent = 'Signing in...';
-    loginBtnElement.disabled = true;
-
-    console.log('Attempting to log in user:', username);
-
-    fetch(`${API_BASE_URL}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, password: password })
-    })
-    .then(response => response.json())
-    .then(data => {
-        loginBtnElement.textContent = originalText;
-        loginBtnElement.disabled = false;
-        console.log('Login response received:', data.success !== false ? 'success' : 'failed', data);
-
-        if (data.error) {
-            showMessage(data.message || 'Unknown error', 'error'); return;
-        }
-        if (data.cookies) {
-            localStorage.setItem('foreup_cookies', data.cookies);
-        }
-        if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
-            showMessage('ForeUp requires you to log in through their website first. Please complete login at ForeUp and try again.', 'error'); return;
-        }
-        if (data.success === false) {
-            showMessage(data.msg || 'Login failed', 'error'); return;
-        }
-        if (data.jwt) {
-            localStorage.setItem('jwt_token', data.jwt);
-            if (data.first_name && data.last_name) {
-                const fullName = `${data.first_name} ${data.last_name}`;
-                localStorage.setItem('user_name', fullName);
-                if (userName) userName.textContent = fullName;
-            }
-            localStorage.setItem('login_data', JSON.stringify(data));
-            checkLogin(); // Update UI based on new login state
-            hideLoginModal();
-            if (selectedCourse) { // If login was triggered by booking
-                showTeeTimeModal(selectedCourse);
-            }
-        } else {
-            showMessage('No authentication token received', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Login error:', error);
-        loginBtnElement.textContent = originalText;
-        loginBtnElement.disabled = false;
-        showMessage(`Login failed: ${error.message || 'Network error'}`, 'error');
-    });
-}
-
-function showMessage(message, type) {
-    if (loginMessage) {
-        loginMessage.textContent = message;
-        loginMessage.className = `status-message ${type}`;
-        loginMessage.style.display = 'block';
-    } else {
-        alert(message); // Fallback
-    }
-}
-
-function getUserBookingClassId() {
-    const loginDataStr = localStorage.getItem('login_data');
-    if (!loginDataStr) return DEFAULT_BOOKING_CLASS;
-    try {
-        const loginData = JSON.parse(loginDataStr);
-        if (loginData.passes) {
-            const passIds = Object.keys(loginData.passes);
-            if (passIds.length > 0) {
-                const passId = passIds[0];
-                const pass = loginData.passes[passId];
-                const membershipName = pass.name;
-                if (membershipName && membershipToBookingClass[membershipName]) {
-                    return membershipToBookingClass[membershipName];
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error getting user booking class:', error);
-    }
-    return DEFAULT_BOOKING_CLASS;
-}
+function checkLogin() { /* ... */ }
+function loginUser(username, password) { /* ... */ }
+function showMessage(message, type) { /* ... */ }
+function getUserBookingClassId() { /* ... */ }
 
 // --- Course Loading ---
-
-function loadCourses() {
-    console.log('loadCourses called on page:', window.location.pathname);
-    if (!courseGrid) {
-        console.warn('Course grid not found on this page, skipping course load.');
-        return;
-    }
-    if (loadingIndicator) loadingIndicator.style.display = 'block';
-    courseGrid.innerHTML = ''; // Clear previous
-
-    // Hard-coded fallback
-    const fallbackCourses = [
-        { name: "Brackenridge Park", details: "Rating 70.3 / Slope 126 / Par 71 / 6243 Yds", courseId: "20103", facilityId: "3564" },
-        { name: "Cedar Creek", details: "Rating 73.4 / Slope 132 / Par 72 / 7158 yds", courseId: "20104", facilityId: "3565" }
-    ];
-
-    console.log('Attempting to fetch courses from API...');
-    fetch(`${API_BASE_URL}/api/courses`)
-        .then(response => {
-            console.log('API response received:', response.status);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(courses => {
-            console.log('Courses data received:', courses ? courses.length : 'none');
-            renderCourses(courses && courses.length > 0 ? courses : fallbackCourses);
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-        })
-        .catch(error => {
-            console.error('Error loading courses:', error);
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-            courseGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: red;"><h3>Error Loading Courses</h3><p>${error.message}. Using fallback data.</p></div>`;
-            renderCourses(fallbackCourses);
-        });
-}
-
-function renderCourses(courses) {
-    if (!courseGrid) return;
-    courseGrid.innerHTML = ''; // Clear again just in case
-
-    courses.forEach(course => {
-        try {
-            const courseCard = document.createElement('div');
-            courseCard.className = 'course-card';
-            const imageUrl = courseImages[course.name] || courseImages["Brackenridge Park"]; // Default image
-
-            courseCard.innerHTML = `
-                <div class="course-img" style="background-image: url('${imageUrl}')"></div>
-                <div class="course-info">
-                    <h3 class="course-name">${course.name}</h3>
-                    <p class="course-details">${course.details || 'Details not available'}</p>
-                    <button class="book-btn course-book-btn">Book Tee Time</button> <!-- Unique class -->
-                </div>
-            `;
-
-            const bookBtn = courseCard.querySelector('.course-book-btn');
-            if (bookBtn) {
-                bookBtn.addEventListener('click', () => {
-                    console.log(`Book button clicked for course: ${course.name}`);
-                    selectedCourse = course; // Set the selected course globally
-                    if (checkLogin()) {
-                        showTeeTimeModal(course);
-                    } else {
-                        console.log('User not logged in, showing login modal.');
-                        showLoginModal(); // Will proceed to tee time modal on successful login
-                    }
-                });
-            }
-            courseGrid.appendChild(courseCard);
-        } catch (e) {
-            console.error('Error rendering course card:', course.name, e);
-        }
-    });
-    console.log('Course rendering complete.');
-}
-
+function loadCourses() { /* ... */ }
+function renderCourses(courses) { /* ... (ensure click calls showTeeTimeModal) ... */ }
 
 // --- Tee Time Selection ---
-
-function showTeeTimeModal(course) {
-    selectedCourse = course; // Ensure it's set
-    if (teeTimeModalTitle) {
-        teeTimeModalTitle.textContent = `Select Date - ${course.name}`;
-    }
-    if (dateSelectionView) dateSelectionView.style.display = 'block';
-    if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
-    generateCalendar(currentMonth, currentYear); // Regenerate calendar
-    showModal(teeTimeModal);
-}
-
-function generateCalendar(month, year) {
-    if (!calendarDays || !calendarMonth) return;
-    calendarDays.innerHTML = '';
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const endDate = new Date(today); endDate.setDate(today.getDate() + 8);
-
-    const options = { month: 'long', day: 'numeric' };
-    const startDateStr = today.toLocaleDateString('en-US', options);
-    const endDateStr = endDate.toLocaleDateString('en-US', options);
-    if(calendarMonth) calendarMonth.textContent = `${startDateStr} - ${endDateStr}`;
-
-    const dateRangeContainer = document.createElement('div');
-    dateRangeContainer.className = 'date-range-container';
-
-    for (let i = 0; i <= 8; i++) {
-        const loopDate = new Date(today);
-        loopDate.setDate(today.getDate() + i);
-
-        const dayBox = document.createElement('div');
-        dayBox.className = 'day-box available';
-        if (i === 0) dayBox.classList.add('today');
-
-        const dayName = loopDate.toLocaleDateString('en-US', { weekday: 'short' });
-        const dayNum = loopDate.getDate();
-        const monthName = loopDate.toLocaleDateString('en-US', { month: 'short' });
-
-        dayBox.innerHTML = `
-            <div class="day-name">${dayName}</div>
-            <div class="day-number">${dayNum}</div>
-            <div class="month-name">${monthName}</div>
-        `;
-
-        const apiDateStr = `${(loopDate.getMonth() + 1).toString().padStart(2, '0')}-${loopDate.getDate().toString().padStart(2, '0')}-${loopDate.getFullYear()}`;
-
-        dayBox.addEventListener('click', () => {
-            document.querySelectorAll('.day-box.selected').forEach(el => el.classList.remove('selected'));
-            dayBox.classList.add('selected');
-            selectDate(loopDate.getFullYear(), loopDate.getMonth(), loopDate.getDate(), apiDateStr);
-        });
-        dateRangeContainer.appendChild(dayBox);
-    }
-    calendarDays.appendChild(dateRangeContainer);
-    if (prevMonth) prevMonth.style.display = 'none';
-    if (nextMonth) nextMonth.style.display = 'none';
-}
-
-function selectDate(year, month, day, apiDateStr) {
-    const selectedDateObj = new Date(year, month, day);
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const formattedDate = selectedDateObj.toLocaleDateString('en-US', options);
-
-    if (selectedDate) selectedDate.textContent = formattedDate;
-    if (dateSelectionView) dateSelectionView.style.display = 'none';
-    if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'block';
-    if (teeTimesLoading) teeTimesLoading.style.display = 'block';
-    if (teeTimesList) teeTimesList.style.display = 'none';
-    if (noTeeTimes) noTeeTimes.style.display = 'none';
-
-    fetchTeeTimes(selectedCourse.courseId, selectedCourse.facilityId, apiDateStr);
-}
-
-function fetchTeeTimes(courseId, facilityId, dateStr) {
-    console.log(`Fetching tee times for course ${courseId}, facility ${facilityId}, date ${dateStr}`);
-    if (teeTimesLoading) teeTimesLoading.style.display = 'block';
-    if (teeTimesList) teeTimesList.style.display = 'none';
-    if (noTeeTimes) noTeeTimes.style.display = 'none';
-
-    const primaryBookingClassId = getUserBookingClassId();
-    const bookingClasses = [primaryBookingClassId, "3272"]; // Try primary, then public
-    let currentAttempt = 0;
-
-    function tryNextBookingClass() {
-        if (currentAttempt >= bookingClasses.length) {
-            showNoTeeTimesMessage(`Unable to fetch tee times for ${dateStr}. Try another date.`);
-            return;
-        }
-        const bookingClassId = bookingClasses[currentAttempt];
-        currentAttempt++;
-        console.log(`Attempt ${currentAttempt}: Using booking class ID: ${bookingClassId}`);
-
-        const token = localStorage.getItem('jwt_token');
-        const cookies = localStorage.getItem('foreup_cookies');
-        if (!token) {
-            showNoTeeTimesMessage('Authentication error. Please log in again.'); return;
-        }
-
-        // Updated simplified URL structure based on previous findings
-        let url = `${API_BASE_URL}/api/teetimes?date=${dateStr}&booking_class=${bookingClassId}&schedule_id=${facilityId}&time=all&holes=all&players=0`;
-
-        // Add common schedule IDs likely needed by the API
-        const scheduleIds = ["3564", "3565", "3566", "3567", "3568", "3569", "3570", "3572", "3727"];
-        scheduleIds.forEach(id => { url += `&schedule_ids%5B%5D=${id}`; });
-        url += '&specials_only=0&api_key=no_limits'; // Append remaining params
-
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'api-key': 'no_limits' // Ensure API key header is present
-        };
-        if (cookies) headers['X-ForeUp-Cookies'] = cookies;
-
-        console.log(`Attempt ${currentAttempt}: Fetching URL:`, url);
-        console.log(`Attempt ${currentAttempt}: Using headers:`, headers);
-
-        fetch(url, { headers })
-            .then(response => {
-                console.log(`Attempt ${currentAttempt}: Response status:`, response.status);
-                if (!response.ok) throw new Error(`API returned status ${response.status}`);
-                return response.text(); // Get raw text first
-            })
-            .then(text => {
-                 console.log(`Attempt ${currentAttempt}: Raw response preview:`, text.substring(0, 200) + '...');
-                 if (text === 'false' || !text || text.trim() === '') {
-                     console.log(`Attempt ${currentAttempt}: API returned no data or 'false'. Trying next config.`);
-                     tryNextBookingClass(); // Move to next attempt
-                     return null; // Indicate no valid data
-                 }
-                 try {
-                    return JSON.parse(text);
-                 } catch(e) {
-                     console.error(`Attempt ${currentAttempt}: Error parsing JSON:`, e);
-                     throw new Error('Invalid JSON response from server.'); // Throw to be caught below
-                 }
-            })
-            .then(data => {
-                if (data === null) return; // Skip if previous step indicated no data
-
-                if (!Array.isArray(data)) {
-                    console.warn(`Attempt ${currentAttempt}: API did not return an array:`, typeof data);
-                    tryNextBookingClass(); return;
-                }
-                console.log(`Attempt ${currentAttempt}: Success! Received ${data.length} potential tee times`);
-
-                const facilityIdNum = parseInt(facilityId);
-                const courseTeeTimes = data.filter(time =>
-                    time.schedule_id === facilityIdNum || time.schedule_id === facilityId // Filter by schedule_id
-                );
-                console.log(`Filtered to ${courseTeeTimes.length} tee times for facility ${facilityId}`);
-
-                if (courseTeeTimes.length === 0) {
-                    tryNextBookingClass(); return; // Try next if no times for this course
-                }
-                displayTeeTimes(courseTeeTimes); // Display found times
-            })
-            .catch(error => {
-                console.error(`Attempt ${currentAttempt}: Fetch Error:`, error);
-                tryNextBookingClass(); // Try next config on error
-            });
-    }
-    tryNextBookingClass(); // Start the first attempt
-}
-
-
-function showNoTeeTimesMessage(message) {
-    if (teeTimesLoading) teeTimesLoading.style.display = 'none';
-    if (teeTimesList) teeTimesList.style.display = 'none';
-    if (noTeeTimes) {
-        noTeeTimes.style.display = 'block';
-        noTeeTimes.innerHTML = `<p>${message || 'No tee times available for this date.'}</p>`;
-    }
-}
-
+function showTeeTimeModal(course) { /* ... (calls generateCalendar) ... */ }
+function generateCalendar(month, year) { /* ... (date range logic) ... */ }
+function selectDate(year, month, day, apiDateStr) { /* ... (calls fetchTeeTimes) ... */ }
+function fetchTeeTimes(courseId, facilityId, dateStr) { /* ... (proxies request via worker) ... */ }
+function showNoTeeTimesMessage(message) { /* ... */ }
 function displayTeeTimes(teeTimesData) {
+    // Displays tee times from the /api/teetimes response
+    // **Crucially, does NOT expect or check for teetime_id here**
     if (!teeTimesList || !teeTimesLoading || !noTeeTimes) return;
     teeTimesLoading.style.display = 'none';
 
@@ -516,16 +106,14 @@ function displayTeeTimes(teeTimesData) {
     teeTimesList.innerHTML = '';
     const groupedTimes = {};
     teeTimesData.forEach(teeTime => {
-        // Expected time format: "YYYY-MM-DD HH:MM" or just "HH:MM"? Adjust accordingly.
-        // Assuming "YYYY-MM-DD HH:MM"
-        const timePart = teeTime.time.split(' ')[1] || teeTime.time; // Handle both possibilities
+        const timePart = teeTime.time.split(' ')[1] || teeTime.time;
         const hour = timePart.split(':')[0];
         if (!groupedTimes[hour]) groupedTimes[hour] = [];
         groupedTimes[hour].push(teeTime);
     });
 
     Object.keys(groupedTimes).sort().forEach(hour => {
-        const hourTimes = groupedTimes[hour].sort((a, b) => (a.time < b.time ? -1 : 1)); // Sort times within the hour
+        const hourTimes = groupedTimes[hour].sort((a, b) => (a.time < b.time ? -1 : 1));
         const hourSection = document.createElement('div');
         hourSection.className = 'hour-section';
         const hourNum = parseInt(hour);
@@ -541,6 +129,7 @@ function displayTeeTimes(teeTimesData) {
 
              const timeSlot = document.createElement('div');
              timeSlot.className = 'time-slot';
+             // ... (display logic for time, spots, price - same as before) ...
              const greenFeeInfo = teeTime.green_fee_18 ? `$${teeTime.green_fee_18}` : (teeTime.green_fee ? `$${teeTime.green_fee}` : '');
              const cartFeeInfo = teeTime.cart_fee_18 ? `+$${teeTime.cart_fee_18} cart` : (teeTime.cart_fee ? `+$${teeTime.cart_fee} cart`: '');
              const priceInfo = greenFeeInfo ? `${greenFeeInfo} ${cartFeeInfo}`.trim() : '';
@@ -552,12 +141,10 @@ function displayTeeTimes(teeTimesData) {
                     ${priceInfo ? `<span class="price-info">${priceInfo}</span>` : ''}
                 </div>
             `;
-             // IMPORTANT: Ensure teeTime.teetime_id exists and is correctly passed
-             if (!teeTime.teetime_id) {
-                 console.warn("Missing teetime_id for time:", teeTime);
-             }
+
+             // Add click listener to store details and show booking form
              timeSlot.addEventListener('click', () => {
-                 selectTeeTime(teeTime, formattedTime);
+                 selectTeeTime(teeTime, formattedTime); // Pass the full object
              });
              hourSection.appendChild(timeSlot);
         });
@@ -566,35 +153,25 @@ function displayTeeTimes(teeTimesData) {
     teeTimesList.style.display = 'block';
     noTeeTimes.style.display = 'none';
 }
-
-function formatTimeString(hour, minute) {
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
-}
-
-// --- Booking Process ---
+function formatTimeString(hour, minute) { /* ... */ }
 
 function selectTeeTime(teeTime, formattedTime) {
-    console.log('Selected tee time:', teeTime); // Log the whole object
-    if (!teeTime.teetime_id) {
-        console.error("CRITICAL: Selected tee time object is missing 'teetime_id'. Cannot book.", teeTime);
-        // Optionally show an error to the user here
-        alert("Error: Could not get necessary booking details for this tee time. Please try another time or contact support.");
-        return; // Stop the process
-    }
+    // Stores the selected tee time details globally and shows the booking modal/form
+    console.log('Storing selected tee time details:', teeTime);
 
-    selectedTeeTime = { ...teeTime, formattedTime: formattedTime }; // Store it
+    // Store the entire object globally
+    selectedTeeTime = { ...teeTime, formattedTime: formattedTime };
 
-    if (bookingDetails) {
-        const selectedDateStr = selectedDate ? selectedDate.textContent : 'Selected Date'; // Use fallback
+    // Update booking details display
+    if (bookingDetails && selectedDate && selectedCourse) {
         bookingDetails.innerHTML = `
-            <strong>${selectedDateStr} at ${formattedTime}</strong>
-            <span>${selectedCourse ? selectedCourse.name : 'Selected Course'}</span>
+            <strong>${selectedDate.textContent} at ${formattedTime}</strong>
+            <span>${selectedCourse.name}</span>
             <span>${teeTime.available_spots} spot${teeTime.available_spots !== 1 ? 's' : ''} available</span>
         `;
     }
 
+    // Show/hide call notice if applicable (e.g., 4 spots available)
     const isSinglePlayerOpenTime = teeTime.available_spots === 4;
     if (bookingFormContainer) bookingFormContainer.style.display = isSinglePlayerOpenTime ? 'none' : 'block';
     if (callNoticeContainer) callNoticeContainer.style.display = isSinglePlayerOpenTime ? 'block' : 'none';
@@ -602,33 +179,13 @@ function selectTeeTime(teeTime, formattedTime) {
     updatePlayerCountOptions(teeTime.available_spots);
     toggleHolesSelector(selectedCourse ? selectedCourse.facilityId : null);
 
-    hideTeeTimeModal(); // Hide date/time selection
-    showBookingModal(); // Show the booking confirmation/form modal
+    hideTeeTimeModal(); // Hide the date/time selection modal
+    showBookingModal(); // Show the final confirmation/booking form modal
 }
+function updatePlayerCountOptions(availableSpots) { /* ... */ }
+function toggleHolesSelector(facilityId) { /* ... */ }
 
-function updatePlayerCountOptions(availableSpots) {
-    if (!playerCountSelect) return;
-    playerCountSelect.innerHTML = '';
-    for (let i = 1; i <= Math.min(4, availableSpots); i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = i === 1 ? '1 Player' : `${i} Players`;
-        playerCountSelect.appendChild(option);
-    }
-}
-
-function toggleHolesSelector(facilityId) {
-    if (!holesSelector || !facilityId) return;
-    const isPar3Course = ['3570', '3572'].includes(String(facilityId)); // Ensure string comparison
-    holesSelector.style.display = isPar3Course ? 'none' : 'block';
-    if (isPar3Course) {
-        const nineHolesRadio = document.querySelector('input[name="holes"][value="9"]');
-        if (nineHolesRadio) nineHolesRadio.checked = true;
-    } else {
-         const eighteenHolesRadio = document.querySelector('input[name="holes"][value="18"]');
-         if (eighteenHolesRadio) eighteenHolesRadio.checked = true; // Default to 18 for non-par3
-    }
-}
+// --- Booking Process (Two Steps) ---
 
 // Helper function to reset the book button state
 function resetBookNowButton() {
@@ -642,20 +199,37 @@ function resetBookNowButton() {
     }
 }
 
+// Step 1: Initiate Pending Reservation (Called when user clicks "Book Now")
+function initiatePendingReservation() {
+    console.log('===== initiatePendingReservation CALLED =====');
 
-function createBooking(bookingData) {
-    console.log('===== createBooking CALLED =====');
-    console.log('Attempting to create booking with data:', bookingData);
-
-    // **Crucial Check:** Ensure selectedTeeTime and its ID exist
-    if (!selectedTeeTime || !selectedTeeTime.teetime_id) {
-        console.error('CRITICAL ERROR in createBooking: Missing selectedTeeTime or teetime_id.', selectedTeeTime);
-        showBookingError('Cannot proceed with booking: Essential tee time data is missing. Please re-select the time.');
-        resetBookNowButton();
-        return;
+    // 1. Validate state
+    if (!selectedTeeTime || !selectedCourse) {
+        showBookingError("Booking information is incomplete. Please select the tee time again.");
+        resetBookNowButton(); return;
     }
-    console.log('Using teetime_id:', selectedTeeTime.teetime_id); // Verify ID being used
 
+    // 2. Get form selections
+    const playerCount = playerCountSelect ? playerCountSelect.value : null;
+    const cartOptionElement = document.querySelector('input[name="cart"]:checked');
+    const cartOption = cartOptionElement ? cartOptionElement.value : null;
+    const holesOptionElement = document.querySelector('input[name="holes"]:checked');
+    const holesOption = holesOptionElement ? holesOptionElement.value : null;
+
+    if (!playerCount || !cartOption || !holesOption) {
+        showBookingError("Please ensure all booking options (Players, Cart, Holes) are selected.");
+        resetBookNowButton(); return;
+    }
+    // Store user's choices
+    const bookingSelections = {
+        playerCount: parseInt(playerCount),
+        cartSelected: cartOption === 'yes', // Boolean
+        holesSelected: parseInt(holesOption) // Number (9 or 18)
+    };
+    console.log("Booking selections:", bookingSelections);
+    console.log("Using selected tee time details:", selectedTeeTime);
+
+    // 3. Get Auth
     const token = localStorage.getItem('jwt_token');
     const cookies = localStorage.getItem('foreup_cookies');
     if (!token) {
@@ -663,132 +237,189 @@ function createBooking(bookingData) {
         resetBookNowButton(); return;
     }
 
-    console.log('Making pending reservation fetch call...');
+    // 4. Prepare Form Data for Pending Reservation API (using exact field list)
+    const formData = new URLSearchParams();
+    formData.append('time', selectedTeeTime.time); // e.g., "2025-04-26 16:40"
+    formData.append('holes', String(bookingSelections.holesSelected)); // Send user's choice (e.g., "9" or "18")
+    formData.append('players', String(bookingSelections.playerCount)); // Send user's choice as string
+    formData.append('carts', bookingSelections.cartSelected ? 'true' : 'false'); // Send boolean as string 'true'/'false'
+    formData.append('schedule_id', selectedTeeTime.schedule_id);
+    formData.append('teesheet_side_id', selectedTeeTime.teesheet_side_id); // Ensure this field exists in selectedTeeTime data
+    formData.append('course_id', selectedTeeTime.course_id);
+    formData.append('booking_class_id', selectedTeeTime.booking_class_id); // Crucial from tee time data
+    formData.append('duration', '1'); // Static based on example
+    formData.append('foreup_discount', selectedTeeTime.foreup_discount !== undefined ? selectedTeeTime.foreup_discount : 'false'); // Default to false if missing
+    formData.append('foreup_trade_discount_rate', selectedTeeTime.foreup_trade_discount_rate !== undefined ? selectedTeeTime.foreup_trade_discount_rate : '0'); // Default
+    formData.append('trade_min_players', selectedTeeTime.trade_min_players !== undefined ? selectedTeeTime.trade_min_players : '0'); // Default
+
+    // Select fees based on chosen holes
+    let green_fee, cart_fee, green_fee_tax, cart_fee_tax;
+    if (bookingSelections.holesSelected === 9) {
+        green_fee = selectedTeeTime.green_fee_9;
+        cart_fee = selectedTeeTime.cart_fee_9;
+        green_fee_tax = selectedTeeTime.green_fee_tax_9 !== undefined ? selectedTeeTime.green_fee_tax_9 : '0';
+        cart_fee_tax = selectedTeeTime.cart_fee_tax_9 !== undefined ? selectedTeeTime.cart_fee_tax_9 : '0';
+    } else { // 18 holes
+        green_fee = selectedTeeTime.green_fee_18 || selectedTeeTime.green_fee;
+        cart_fee = selectedTeeTime.cart_fee_18 || selectedTeeTime.cart_fee;
+        green_fee_tax = selectedTeeTime.green_fee_tax_18 !== undefined ? selectedTeeTime.green_fee_tax_18 : '0';
+        cart_fee_tax = selectedTeeTime.cart_fee_tax_18 !== undefined ? selectedTeeTime.cart_fee_tax_18 : '0';
+    }
+    // Append fees, defaulting to 0 if undefined
+    formData.append('cart_fee', cart_fee !== undefined ? cart_fee : '0');
+    formData.append('cart_fee_tax', cart_fee_tax);
+    formData.append('green_fee', green_fee !== undefined ? green_fee : '0');
+    formData.append('green_fee_tax', green_fee_tax);
+
+
+    console.log('Making pending reservation fetch call with form data:', formData.toString());
     fetch(`${API_BASE_URL}/api/pending-reservation`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': `Bearer ${token}`,
             'X-ForeUp-Cookies': cookies || ''
         },
-        body: new URLSearchParams({
-            course_id: bookingData.courseId,
-            teesheet_id: bookingData.facilityId,
-            teetime_id: selectedTeeTime.teetime_id, // Use the ID from the globally stored object
-            player_count: bookingData.playerCount,
-            holes: bookingData.holes,
-            carts: bookingData.cart ? bookingData.playerCount : 0, // Correct cart logic
-            booking_class: getUserBookingClassId()
-        })
+        body: formData
     })
     .then(response => {
-        console.log('Pending reservation response status:', response.status);
         if (!response.ok) {
-            // Try to get more details from error response
-            return response.json().then(errData => {
-                 throw new Error(errData.message || `HTTP error! status: ${response.status}`);
-            }).catch(() => { throw new Error(`HTTP error! status: ${response.status}`); });
+            return response.json().then(errData => { throw new Error(errData.message || `HTTP ${response.status}`); });
         }
         return response.json();
     })
     .then(data => {
         console.log('Pending reservation response data:', data);
-        if (data.error || !data.pendingReservationId) {
-            showBookingError(data.message || data.error || 'Failed to create reservation (No ID received)');
-            resetBookNowButton(); return;
+        if (data.success === true && data.reservation_id) {
+            console.log('Pending reservation successful. ID:', data.reservation_id);
+            // Proceed to final booking step
+            completeReservation(data.reservation_id, selectedTeeTime, bookingSelections);
+        } else {
+            showBookingError(data.msg || data.message || 'Failed to secure temporary reservation.');
+            resetBookNowButton();
         }
-        // Success, proceed to complete
-        completeReservation(data.pendingReservationId, bookingData);
     })
     .catch(error => {
         console.error('Error during pending reservation fetch:', error);
-        showBookingError(`Failed to initiate booking: ${error.message || 'Network error'}`);
+        showBookingError(`Failed to initiate booking: ${error.message}`);
         resetBookNowButton();
     });
 }
 
-function completeReservation(pendingReservationId, bookingData) {
-    console.log('Completing reservation:', pendingReservationId);
+
+// Step 2: Complete the Reservation (Called after successful pending step)
+function completeReservation(pendingReservationId, teeTimeDetails, bookingSelections) {
+    console.log('===== completeReservation CALLED =====');
+    console.log('Completing reservation ID:', pendingReservationId);
+
     const token = localStorage.getItem('jwt_token');
     const cookies = localStorage.getItem('foreup_cookies');
-    if (!token) {
-        showBookingError('Authentication lost. Please log in again.');
-        resetBookNowButton(); return;
-    }
+    if (!token) { showBookingError("Authentication lost."); resetBookNowButton(); return; }
 
-    console.log('Making complete reservation fetch call...');
+    // Construct the RICH JSON payload based on the final curl example
+    // Start by copying *most* fields directly from the original tee time details
+    const payload = { ...teeTimeDetails }; // Shallow copy
+
+    // ---- Critical Override: Add the pending reservation ID ----
+    payload.pending_reservation_id = pendingReservationId;
+
+    // ---- Override fields based on user selections ----
+    payload.players = String(bookingSelections.playerCount); // Format as string
+    payload.carts = bookingSelections.cartSelected; // Send boolean
+    payload.holes = String(bookingSelections.holesSelected); // Format as string
+
+    // ---- Remove fields that might be calculated server-side or aren't needed ----
+    // Review carefully - remove only if causing issues.
+    delete payload.available_spots;
+    delete payload.available_spots_9;
+    delete payload.available_spots_18;
+    delete payload.allowed_group_sizes;
+    // Keep fee fields (green_fee, cart_fee etc.) as they were part of the curl request data
+    // Remove potentially calculated/generated fields:
+    delete payload.total;
+    delete payload.pay_total;
+    delete payload.pay_subtotal;
+    delete payload.subtotal;
+    delete payload.details;
+    delete payload.airQuotesCart;
+    delete payload.formattedTime; // Remove frontend helper field
+
+    // ---- Ensure required static/default fields ----
+    payload.promo_code = payload.promo_code || "";
+    payload.promo_discount = payload.promo_discount || 0;
+    payload.duration = payload.duration || 1; // Make sure duration is present
+    payload.notes = payload.notes || [];
+    payload.customer_message = payload.customer_message || "";
+
+
+    console.log('Making complete reservation fetch call with payload:', payload);
     fetch(`${API_BASE_URL}/api/complete-reservation`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json', // Must be JSON
             'Authorization': `Bearer ${token}`,
             'X-ForeUp-Cookies': cookies || ''
         },
-        body: JSON.stringify({
-            pending_reservation_id: pendingReservationId,
-            course_id: bookingData.courseId
-        })
+        body: JSON.stringify(payload) // Send the constructed JSON payload
     })
-     .then(response => {
+    .then(response => {
         console.log('Complete reservation response status:', response.status);
         if (!response.ok) {
-            return response.json().then(errData => {
-                 throw new Error(errData.message || `HTTP error! status: ${response.status}`);
-            }).catch(() => { throw new Error(`HTTP error! status: ${response.status}`); });
+            return response.json().then(errData => { throw new Error(errData.message || errData.msg || `HTTP ${response.status}`); });
         }
         return response.json();
     })
     .then(data => {
         console.log('Reservation completion response data:', data);
-        resetBookNowButton(); // Reset button regardless of success/error after this point
+        resetBookNowButton(); // Reset button state
 
-        if (data.error || data.success === false) { // Check for explicit failure too
-            showBookingError(data.message || data.error || 'Failed to complete reservation');
-            return;
+        // Check for the final confirmation ID ("TTID" based on curl response)
+        if (data.TTID) {
+            console.log('Reservation completed successfully! Final ID:', data.TTID);
+            showBookingSuccess(data.TTID, data); // Use the final ID
+            // Store bookingSelections (user choices) along with final response data
+            storeBookingInLocalStorage(data.TTID, { ...bookingSelections, ...teeTimeDetails }, data); // Store richer context
+            hideBookingModal();
+        } else {
+            showBookingError(data.msg || data.message || 'Failed to complete reservation (Unknown Reason)');
         }
-        // Success!
-        showBookingSuccess(pendingReservationId, data);
-        storeBookingInLocalStorage(pendingReservationId, bookingData, data);
-        hideBookingModal();
     })
     .catch(error => {
         console.error('Error during complete reservation fetch:', error);
-        showBookingError(`Failed to finalize booking: ${error.message || 'Network error'}`);
+        showBookingError(`Failed to finalize booking: ${error.message}`);
         resetBookNowButton();
     });
 }
 
 // --- Notifications & Local Storage ---
-
 function showBookingError(message) {
-    // (Keep your existing notification creation code here)
-    console.error("Booking Error:", message); // Log error clearly
-     alert(`Booking Failed:\n${message}`); // Simple fallback notification
+    console.error("Booking Error:", message);
+    // Implement a more user-friendly notification if desired
+    alert(`Booking Failed:\n${message}`);
+    resetBookNowButton(); // Ensure button is reset on error display
 }
 
 function showBookingSuccess(reservationId, data) {
-    // (Keep your existing notification creation code here)
-     console.log("Booking Success:", reservationId, data);
-     alert(`Booking Confirmed!\nConfirmation #: ${reservationId}\nCourse: ${selectedCourse?.name}\nTime: ${selectedTeeTime?.formattedTime}`); // Simple fallback
+    console.log("Booking Success:", reservationId, data);
+     // Implement a more user-friendly notification
+    alert(`Booking Confirmed!\nConfirmation #: ${reservationId}\nCourse: ${selectedCourse?.name}\nTime: ${selectedTeeTime?.formattedTime}`);
 }
 
-
-function storeBookingInLocalStorage(reservationId, bookingData, responseData) {
+function storeBookingInLocalStorage(reservationId, bookingContext, responseData) {
+    // Stores user selections and tee time details along with confirmation
     try {
         const existingBookingsStr = localStorage.getItem('user_bookings');
         const existingBookings = existingBookingsStr ? JSON.parse(existingBookingsStr) : [];
         const newBooking = {
-            id: reservationId,
+            id: reservationId, // Final confirmation ID
             date: selectedDate ? selectedDate.textContent : 'N/A',
-            time: selectedTeeTime ? selectedTeeTime.formattedTime : 'N/A',
+            time: bookingContext?.formattedTime || 'N/A', // Use formattedTime if available
             course: selectedCourse ? selectedCourse.name : 'N/A',
-            courseId: selectedCourse ? selectedCourse.courseId : 'N/A',
-            facilityId: selectedCourse ? selectedCourse.facilityId : 'N/A',
-            players: bookingData.playerCount,
-            cart: bookingData.cart,
-            holes: bookingData.holes,
+            players: bookingContext?.playerCount,
+            cart: bookingContext?.cartSelected,
+            holes: bookingContext?.holesSelected,
             createdAt: new Date().toISOString(),
-            responseData: responseData // Store the success response
+            teeTimeDetails: bookingContext, // Store context
+            confirmationData: responseData // Store the success response
         };
         existingBookings.push(newBooking);
         localStorage.setItem('user_bookings', JSON.stringify(existingBookings));
@@ -799,172 +430,74 @@ function storeBookingInLocalStorage(reservationId, bookingData, responseData) {
 }
 
 // --- Stats Page Functions --- (Keep your existing stats functions)
-function getRuleType(ruleName) { /* ... existing code ... */ return 'standard'; }
-function initializeStatsPage() { /* ... existing code ... */ console.log('Initializing stats page'); }
-function formatDate(dateStr) { /* ... existing code ... */ return 'N/A'; }
-
+function getRuleType(ruleName) { /* ... */ return 'standard'; }
+function initializeStatsPage() { /* ... */ console.log('Initializing stats page'); }
+function formatDate(dateStr) { /* ... */ return 'N/A'; }
 
 // --- Phone Call Functionality --- (Keep if needed)
-function makePhoneCall() { /* ... existing code ... */ console.log('Initiating phone call'); }
+function makePhoneCall() { /* ... */ console.log('Initiating phone call'); }
 
 
 // --- Initialization and Event Listeners ---
-
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM content loaded, initializing page...');
 
     checkLogin(); // Initial check
 
     // --- Login Modal Listeners ---
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const usernameInput = getElement('username');
-            const passwordInput = getElement('password');
-            if (usernameInput && passwordInput && usernameInput.value && passwordInput.value) {
-                loginUser(usernameInput.value, passwordInput.value);
-            } else {
-                showMessage('Please enter both username and password.', 'error');
-            }
-        });
-    }
+    if (loginForm) { /* ... login listener ... */ }
     if (closeLoginModal) closeLoginModal.addEventListener('click', hideLoginModal);
     if (loginModal) loginModal.addEventListener('click', (e) => { if (e.target === loginModal) hideLoginModal(); });
 
     // --- Logout Listener ---
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
-            console.log('Logout clicked');
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('user_name');
-            localStorage.removeItem('foreup_cookies');
-            localStorage.removeItem('login_data');
-            localStorage.removeItem('user_bookings'); // Clear bookings on logout too
-            checkLogin(); // Update UI
-            if (window.location.pathname.includes('mystats.html')) {
-                 window.location.href = 'index3.html'; // Redirect from stats page
-            } else {
-                 // Optionally reload or just update UI via checkLogin()
-                 // window.location.reload();
-            }
-        });
-    }
+    if (logoutBtn) { /* ... logout listener ... */ }
 
     // --- Tee Time Modal Listeners ---
     if (closeTeeTimeModal) closeTeeTimeModal.addEventListener('click', hideTeeTimeModal);
     if (teeTimeModal) teeTimeModal.addEventListener('click', (e) => { if (e.target === teeTimeModal) hideTeeTimeModal(); });
-    // Calendar navigation listeners (prev/next) were removed as generateCalendar hides them
-    if (backToCalendar) {
-        backToCalendar.addEventListener('click', function() {
-            console.log('Back to calendar clicked');
-            if (dateSelectionView) dateSelectionView.style.display = 'block';
-            if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none';
-        });
-    }
+    if (backToCalendar) { /* ... backToCalendar listener ... */ }
 
     // --- Booking Modal Listeners ---
     if (closeBookingModal) closeBookingModal.addEventListener('click', hideBookingModal);
-    if (cancelBookingBtn) {
-         cancelBookingBtn.addEventListener('click', function() {
-             console.log('Cancel booking button clicked');
-             hideBookingModal();
-         });
-    }
+    if (cancelBookingBtn) cancelBookingBtn.addEventListener('click', hideBookingModal);
     if (bookingModal) bookingModal.addEventListener('click', (e) => { if (e.target === bookingModal) hideBookingModal(); });
 
-    // *** THE CRUCIAL BOOKING BUTTON LISTENER ***
+    // *** BOOKING BUTTON LISTENER (Triggers Step 1) ***
     if (bookNowBtn) {
         console.log('DEBUG: Attaching click listener to bookNowBtn');
         bookNowBtn.addEventListener('click', function() {
-            // ***** FIRST LINE OF DEFENSE: Check if this log appears *****
             console.log('DEBUG: bookNowBtn CLICKED!');
-
-            // Disable button immediately
             bookNowBtn.disabled = true;
             bookNowBtn.classList.add('loading');
             bookNowBtn.textContent = 'Booking...';
             console.log('DEBUG: Button disabled and loading state set.');
 
             try {
-                // 1. Get Form Values
-                const playerCount = playerCountSelect ? playerCountSelect.value : null;
-                const cartOptionElement = document.querySelector('input[name="cart"]:checked');
-                const cartOption = cartOptionElement ? cartOptionElement.value : null;
-                 const holesOptionElement = document.querySelector('input[name="holes"]:checked');
-                const holesOption = holesOptionElement ? holesOptionElement.value : null;
-
-
-                // 2. Validate Inputs
-                if (!playerCount || !cartOption || !holesOption) {
-                    console.error("Validation Error: Missing form values", { playerCount, cartOption, holesOption });
-                    showBookingError("Please ensure all booking options (Players, Cart, Holes) are selected.");
-                    resetBookNowButton(); // Re-enable button on validation error
-                    return;
-                }
-                 console.log('DEBUG: Form values retrieved:', { playerCount, cartOption, holesOption });
-
-                if (!selectedCourse || !selectedTeeTime || !selectedTeeTime.teetime_id) {
-                     console.error("Validation Error: Missing critical state", { selectedCourse, selectedTeeTime });
-                     showBookingError("Course or Tee Time data is missing. Please try selecting the time again.");
-                     resetBookNowButton();
-                     return;
-                }
-                 console.log('DEBUG: State validated:', { courseName: selectedCourse.name, teeTimeId: selectedTeeTime.teetime_id });
-
-
-                // 3. Prepare Booking Data
-                const bookingData = {
-                    courseId: selectedCourse.courseId,
-                    facilityId: selectedCourse.facilityId,
-                    // Note: teetime_id is read directly from selectedTeeTime inside createBooking
-                    playerCount: parseInt(playerCount),
-                    cart: cartOption === 'yes',
-                    holes: parseInt(holesOption)
-                };
-                console.log('DEBUG: Prepared booking data:', bookingData);
-
-                // 4. Call createBooking
-                createBooking(bookingData);
-
+                 // Call the Step 1 function: Initiate Pending Reservation
+                 initiatePendingReservation();
             } catch (error) {
-                // Catch unexpected errors during the click handler execution
-                console.error("FATAL ERROR inside bookNowBtn click handler:", error);
-                showBookingError(`An unexpected error occurred: ${error.message}. Please try again.`);
-                resetBookNowButton(); // Ensure reset even on unexpected errors
+                 console.error("FATAL ERROR inside bookNowBtn click handler:", error);
+                 showBookingError(`An unexpected error occurred: ${error.message}. Please try again.`);
+                 resetBookNowButton(); // Ensure reset on unexpected errors
             }
         });
-         console.log('DEBUG: Click listener ATTACHED to bookNowBtn.');
+        console.log('DEBUG: Click listener ATTACHED to bookNowBtn.');
     } else {
         console.error('DEBUG: bookNowBtn not found, listener could not be attached.');
     }
 
-
     // --- Call Modal Listeners (If using call functionality) ---
-    if (closeCallConfirmModal) closeCallConfirmModal.addEventListener('click', hideCallConfirmModal);
-    if (callConfirmModal) callConfirmModal.addEventListener('click', (e) => { if (e.target === callConfirmModal) hideCallConfirmModal(); });
-    // Make sure cancelCallBtn and makeCallBtn have unique IDs if they are different buttons
-    const cancelCallBtnBooking = getElement('cancelCallBtn', 'Cancel call button (booking) not found', false); // Example if IDs differ
-    const makeCallBtnBooking = getElement('makeCallBtn', 'Make call button (booking) not found', false); // Example if IDs differ
-    if(cancelCallBtnBooking) cancelCallBtnBooking.addEventListener('click', hideBookingModal); // Assumes cancel hides booking modal
-    if(makeCallBtnBooking) makeCallBtnBooking.addEventListener('click', makePhoneCall); // Assumes make call proceeds
+    // ... (Ensure unique IDs if needed and attach listeners) ...
 
     // --- Page-Specific Initialization ---
-    if (document.getElementById('courseGrid')) {
-        console.log('Initializing Course Page...');
-        loadCourses();
-    } else if (document.getElementById('statsContainer')) {
-        console.log('Initializing Stats Page...');
-        initializeStatsPage(); // Ensure this function is defined correctly above
-    } else {
-        console.warn('Unknown page type - no course grid or stats container found.');
-    }
+    if (document.getElementById('courseGrid')) { /* ... loadCourses ... */ }
+    else if (document.getElementById('statsContainer')) { /* ... initializeStatsPage ... */ }
+    else { /* ... warn unknown page type ... */ }
 
     // --- API Health Check ---
-    console.log('Performing API health check...');
-    fetch(`${API_BASE_URL}/health`)
-        .then(response => response.ok ? response.json() : { status: 'error', message: `Health check failed with status ${response.status}` })
-        .then(data => console.log('API health check result:', data))
-        .catch(error => console.error('API health check failed:', error));
+    /* ... health check fetch ... */
 
     console.log('Page initialization complete.');
 });
+
+// --- END OF FILE scripts.js ---
