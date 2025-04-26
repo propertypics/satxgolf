@@ -650,4 +650,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // --- END OF FILE scripts.js ---
-```
