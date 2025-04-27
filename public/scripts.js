@@ -245,7 +245,11 @@ function renderCourses(courses) {
                     console.log(`Book button clicked for course: ${course.name}`);
                     selectedCourse = course;
                     if (checkLogin()) { showTeeTimeModal(course); }
-                    else { console.log('User not logged in, showing login modal.'); showLoginModal(); }
+                    else { console.log('User not logged in, showing login modal.');
+	                   console.log('Is loginModal element available right before showing?', loginModal);
+                        if (!loginModal) {
+                             console.error("CRITICAL: Global loginModal variable is null/undefined before calling showLoginModal!");
+                        } showLoginModal(); }
                 });
             }
             courseGrid.appendChild(courseCard);
