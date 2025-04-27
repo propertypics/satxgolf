@@ -133,6 +133,7 @@ function checkLogin() {
     return false;
 }
 function loginUser(username, password) {
+    console.log("DEBUG: Entered loginUser function."); 
     if (!loginMessage || !loginForm) return;
     loginMessage.style.display = 'none';
     const loginBtnElement = loginForm.querySelector('.login-btn');
@@ -594,7 +595,40 @@ document.addEventListener('DOMContentLoaded', function() {
     checkLogin();
 
     // Login Modal Listeners
-    if (loginForm) { loginForm.addEventListener('submit', function(e) { e.preventDefault(); /* ... call loginUser ... */ }); }
+    if (loginForm) {
+    console.log("DEBUG: Attaching submit listener to loginForm"); // Add log
+    loginForm.addEventListener('submit', function(e) {
+        e.preventDefault(); // Prevent default form submission
+        console.log("DEBUG: loginForm submitted!"); // Add log
+
+        // Get element references INSIDE the handler to be safe
+        const usernameInput = document.getElementById('username'); // Use basic getElementById here
+        const passwordInput = document.getElementById('password');
+
+        if (usernameInput && passwordInput && usernameInput.value && passwordInput.value) {
+            console.log("DEBUG: Calling loginUser..."); // Add log
+            loginUser(usernameInput.value, passwordInput.value);
+        } else {
+            // Log the state of inputs if validation fails
+            console.error("DEBUG: Username or Password field validation failed.");
+            console.log("DEBUG: usernameInput found:", !!usernameInput, "value:", usernameInput?.value);
+            console.log("DEBUG: passwordInput found:", !!passwordInput, "value:", passwordInput?.value ? '******' : ''); // Don't log password value
+            // Optionally show message to user
+             if(typeof showMessage === 'function') { // Ensure showMessage exists
+                showMessage('Please enter both Email/Username and Password.', 'error');
+             } else {
+                alert('Please enter both Email/Username and Password.'); // Fallback alert
+             }
+        }
+    });
+    console.log("DEBUG: Submit listener ATTACHED to loginForm."); // Add log
+} else {
+    console.error("DEBUG: loginForm element not found, cannot attach listener.");
+}
+
+
+
+
     if (closeLoginModal) closeLoginModal.addEventListener('click', hideLoginModal);
     if (loginModal) loginModal.addEventListener('click', (e) => { if (e.target === loginModal) hideLoginModal(); });
 
