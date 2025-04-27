@@ -132,30 +132,97 @@ function checkLogin() {
     if (statsLink) statsLink.style.display = 'none';
     return false;
 }
+
 function loginUser(username, password) {
-    console.log("DEBUG: Entered loginUser function."); 
-    if (!loginMessage || !loginForm) return;
+    console.log("DEBUG: Entered loginUser function."); // Existing log - GOOD
+
+    if (!loginMessage || !loginForm) {
+         console.error("DEBUG: loginMessage or loginForm missing inside loginUser.");
+         return; // Exit if essential elements are missing
+    }
+
     loginMessage.style.display = 'none';
     const loginBtnElement = loginForm.querySelector('.login-btn');
-    if (!loginBtnElement) return;
+    if (!loginBtnElement) {
+        console.error("DEBUG: Login button element not found inside loginUser.");
+        return; // Exit if button isn't found
+    }
+
     const originalText = loginBtnElement.textContent;
-    loginBtnElement.textContent = 'Signing in...'; loginBtnElement.disabled = true;
-    console.log('Attempting to log in user:', username);
+    loginBtnElement.textContent = 'Signing in...';
+    loginBtnElement.disabled = true;
+
+    console.log('Attempting to log in user:', username); // Existing log - GOOD
+    console.log("DEBUG: About to initiate fetch to /api/login..."); // Log before fetch
+
     fetch(`${API_BASE_URL}/api/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username, password: password })
     })
-    .then(response => response.json())
-    .then(data => {
-        loginBtnElement.textContent = originalText; loginBtnElement.disabled = false;
-        console.log('Login response received:', data.success !== false ? 'success' : 'failed', data);
-        if (data.error) { showMessage(data.message || 'Unknown error', 'error'); return; }
-        if (data.cookies) localStorage.setItem('foreup_cookies', data.cookies);
-        if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
-            showMessage('ForeUp requires login via their website first. Please log in there and try again.', 'error'); return;
+    // First .then() to handle the raw response
+    .then(response => {
+        // Log the raw response object immediately
+        console.log("DEBUG: Received response object from fetch:", response);
+
+        // Check the HTTP status code
+        if (!response.ok) {
+             console.error(`DEBUG: Login fetch failed with status: ${response.status} ${response.statusText}`);
+             // Attempt to read the response body as text first to see the error message from the server
+             return response.text().then(text => {
+                console.error("DEBUG: Failed response body text:", text);
+                // Try to parse as JSON for structured error, otherwise use text
+                try {
+                    const errData = JSON.parse(text);
+                    // Throw an error that includes the server's message if possible
+                    throw new Error(errData.message || errData.error || `HTTP error ${response.status}`);
+                } catch(e) {
+                    // If parsing fails or text is empty, use the raw text or status
+                    throw new Error(text || `HTTP error ${response.status}`);
+                }
+             }).catch(err => {
+                // Catch errors from response.text() itself (e.g., network issues during read)
+                 console.error("DEBUG: Error reading failed response body:", err);
+                 throw new Error(`HTTP error ${response.status} - unable to read response body`);
+             });
         }
-        if (data.success === false) { showMessage(data.msg || 'Login failed', 'error'); return; }
+        // If response.ok is true, log and proceed to parse JSON
+        console.log("DEBUG: Response OK, attempting to parse JSON...");
+        return response.json(); // This promise resolves with the parsed JSON data
+    })
+    // Second .then() to handle the successfully parsed JSON data
+    .then(data => {
+        // This block only runs if response.ok was true AND response.json() succeeded
+        console.log("DEBUG: Successfully parsed JSON response.");
+        loginBtnElement.textContent = originalText; // Reset button on success/failure *after* processing
+        loginBtnElement.disabled = false;
+
+        // --- Start processing the login 'data' object ---
+        console.log('Login data received from API:', data); // Log the actual data
+
+        // Check for errors reported within the JSON data itself
+        if (data.error || data.success === false) {
+             // Use ForeUp's message if available
+             const errorMessage = data.message || data.msg || data.error || 'Login failed (API reported error)';
+             console.error("DEBUG: API reported login failure:", errorMessage);
+             showMessage(errorMessage, 'error'); // Show specific error
+             return; // Stop further processing
+        }
+
+        // Handle specific cases like "Refresh required"
+        if (data.msg === "Refresh required." || data.msg === "Refresh required") {
+             console.warn("DEBUG: ForeUp requires refresh.");
+             showMessage('ForeUp requires login via their website first. Please log in there and try again.', 'error');
+             return;
+        }
+
+        // --- Process successful login ---
         if (data.jwt) {
+            console.log("DEBUG: JWT received, processing successful login.");
+            if (data.cookies) {
+                localStorage.setItem('foreup_cookies', data.cookies);
+                console.log("DEBUG: ForeUp cookies stored.");
+            }
             localStorage.setItem('jwt_token', data.jwt);
             if (data.first_name && data.last_name) {
                 const fullName = `${data.first_name} ${data.last_name}`;
@@ -163,16 +230,43 @@ function loginUser(username, password) {
                 if (userName) userName.textContent = fullName;
             }
             localStorage.setItem('login_data', JSON.stringify(data));
-            checkLogin(); hideLoginModal();
-            if (selectedCourse) showTeeTimeModal(selectedCourse);
-        } else { showMessage('No authentication token received', 'error'); }
+            console.log("DEBUG: Auth token and login data stored.");
+
+            checkLogin(); // Update UI based on new login state
+            hideLoginModal(); // Close modal
+
+            // Proceed to tee time selection if login was triggered by booking attempt
+            if (selectedCourse) {
+                console.log("DEBUG: Login successful, proceeding to show tee time modal.");
+                showTeeTimeModal(selectedCourse);
+            }
+        } else {
+            // This case should ideally be caught by the success/error checks above, but as a fallback:
+            console.error("DEBUG: Login success reported, but no JWT token received.");
+            showMessage('Login successful, but authentication token missing.', 'error');
+        }
     })
+    // .catch() block handles errors from the fetch itself OR errors thrown in the .then() blocks
     .catch(error => {
-        console.error('Login error:', error);
-        loginBtnElement.textContent = originalText; loginBtnElement.disabled = false;
-        showMessage(`Login failed: ${error.message || 'Network error'}`, 'error');
+        // This catches network errors, HTTP errors (if thrown from first .then), JSON parsing errors,
+        // and any other unexpected errors in the promise chain.
+        console.error("DEBUG: Error caught in login fetch promise chain:", error);
+
+        // Ensure button is reset even on error
+        if (loginBtnElement) { // Check if element still exists
+             loginBtnElement.textContent = originalText;
+             loginBtnElement.disabled = false;
+        }
+
+        // Show specific error message from the caught error
+        showMessage(`Login failed: ${error.message || 'Unknown error'}`, 'error');
     });
+
+    // This log shows that the fetch call was initiated, but the promise hasn't resolved yet
+    console.log("DEBUG: Fetch call initiated (execution continues synchronously).");
 }
+
+
 function showMessage(message, type) {
     if (loginMessage) {
         loginMessage.textContent = message; loginMessage.className = `status-message ${type}`;
