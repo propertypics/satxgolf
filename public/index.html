@@ -3,789 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SATX Golf - Alamo City Golf Trail v1.0.4</title>
-    <style>
-        /* Same styling as before - omitted for brevity */
-        
-        /* Debug Panel - Expanded */
-        .debug-panel {
-            margin-top: 2rem;
-            background-color: #f5f5f5;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 1rem;
-        }
-        
-        .debug-panel h3 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-        }
-        
-        .debug-panel pre {
-            background-color: #333;
-            color: #fff;
-            padding: 1rem;
-            border-radius: 4px;
-            overflow-x: auto;
-            max-height: 400px; /* Increased height */
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-        }
-        
-        .debug-control {
-            margin-bottom: 1rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        
-        .panel-toggle {
-            background-color: #666;
-        }
-        
-        .panel-clear {
-            background-color: #cc0000;
-        }
-        
-        .debug-action-btn {
-            background-color: #336699;
-            margin-right: 0.5rem;
-        }
-        
-        /* Version tag */
-        .version-tag {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background-color: rgba(51, 102, 51, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-        
-        /* Debug mode indicator */
-        .debug-mode {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background-color: rgba(255, 0, 0, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-    </style>
+    <title>SATX Golf - Alamo City Golf Trail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Debug mode indicator -->
-    <div class="debug-mode">DEBUG MODE</div>
-    
-    <div class="user-info" id="userInfo">
-        Welcome, <span id="userName">User</span>
-        <button class="logout-btn" id="logoutBtn">Logout</button>
-    </div>
-    
     <header>
-        <h1>San Antonio Golf Trail</h1>
-        <p>Simple Booking Interface</p>
+        <div class="container header-content">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 18V2"/>
+                    <path d="M8 6h8"/>
+                    <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                    <path d="M10 14v7"/>
+                    <path d="M14 14v7"/>
+                    <path d="M6 18h12"/>
+                    <path d="M6 22h12"/>
+                </svg>
+                <span>SATX Golf</span>
+            </div>
+            <div class="nav-links">
+                <a href="index3.html" class="active">Courses</a>
+                <a href="mystats.html" id="statsLink" style="display: none;">My Stats</a>
+            </div>
+            <div class="user-info" id="userInfo">
+                <span class="user-name" id="userName">User</span>
+                <button class="logout-btn" id="logoutBtn">Logout</button>
+            </div>
+        </div>
     </header>
     
-    <div class="container">
-        <!-- Login Form -->
-        <div class="login-container" id="loginForm">
-            <h2>Login to Your Account</h2>
-            <div id="loginMessage" class="status-message"></div>
-            
-            <form id="loginFormElement">
-                <div class="form-group">
-                    <label for="username">Email / Username</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                
-                <button type="submit">Sign In</button>
-            </form>
+    <section class="hero">
+        <div class="container">
+            <h1>SATX Golf </h1>
+            <p>Book, Track, Share your golf with ACGT friends</p>
+        </div>
+    </section>
+    
+    <main class="container">
+        <h2 class="section-title">Our Courses</h2>
+        
+        <div class="course-grid" id="courseGrid">
+            <!-- Course cards will be generated by JavaScript -->
         </div>
         
         <!-- Loading Indicator -->
         <div class="loading" id="loadingIndicator">
             <div class="spinner"></div>
-            <p>Loading...</p>
+            <p>Loading courses...</p>
         </div>
-        
-        <!-- Golf Courses Container -->
-        <div class="courses-container" id="coursesContainer">
-            <h2>Select a Golf Course</h2>
-            <div class="course-grid" id="courseGrid">
-                <!-- Course cards will be inserted here by JavaScript -->
+    </main>
+    
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Login to Book</h3>
+                <button class="close-modal" id="closeLoginModal">&times;</button>
             </div>
-        </div>
-        
-        <!-- Tee Times Container -->
-        <div class="teetimes-container" id="teetimesContainer">
-            <div class="teetimes-header">
-                <button class="back-button" id="backToCourses">Back to Courses</button>
-                <h2>Available Tee Times for <span id="courseName"></span></h2>
-                <div>
-                    <label for="datePicker">Select Date:</label>
-                    <input type="date" id="datePicker" class="date-picker">
+            <div id="loginMessage" class="status-message"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Email / Username</label>
+                    <input type="text" id="username" name="username" required>
                 </div>
-            </div>
-            <div class="teetimes-list" id="teetimesList">
-                <!-- Tee time cards will be inserted here by JavaScript -->
-            </div>
-        </div>
-        
-        <!-- Debug Panel -->
-        <div class="debug-panel" id="debugPanel">
-            <div class="debug-control">
-                <button class="panel-toggle" id="toggleDebug">Toggle Debug Panel</button>
-                <button class="panel-clear" id="clearDebug">Clear Logs</button>
-                <button class="debug-action-btn" id="testAuthBtn">Test Auth</button>
-                <button class="debug-action-btn" id="showLocalStorageBtn">Show Local Storage</button>
-                <button class="debug-action-btn" id="clearAuthBtn">Clear Auth</button>
-            </div>
-            <div id="debugContent" style="display: block;">
-                <h3>Debug Logs</h3>
-                <pre id="debugLogs"></pre>
-            </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
         </div>
     </div>
     
-    <!-- Version tag -->
-    <div class="version-tag">v1.0.4</div>
+    <!-- Tee Time Selection Modal -->
+    <div class="modal-overlay" id="teeTimeModal">
+        <div class="modal tee-time-modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="teeTimeModalTitle">Select Date</h3>
+                <button class="close-modal" id="closeTeeTimeModal">&times;</button>
+            </div>
+            
+            <div class="modal-content">
+                <!-- Date selection view -->
+                <div id="dateSelectionView">
+                    <div class="calendar-header">
+                        <button id="prevMonth" class="calendar-nav">&lt;</button>
+                        <h4 id="calendarMonth">April 2025</h4>
+                        <button id="nextMonth" class="calendar-nav">&gt;</button>
+                    </div>
+                    <div class="calendar-grid">
+                        <div class="weekday">Sun</div>
+                        <div class="weekday">Mon</div>
+                        <div class="weekday">Tue</div>
+                        <div class="weekday">Wed</div>
+                        <div class="weekday">Thu</div>
+                        <div class="weekday">Fri</div>
+                        <div class="weekday">Sat</div>
+                        <!-- Calendar dates will be generated by JavaScript -->
+                        <div id="calendarDays"></div>
+                    </div>
+                </div>
+                
+                <!-- Tee time slots view -->
+                <div id="teeTimeSlotsView" style="display: none;">
+                    <div class="selected-date-header">
+                        <button id="backToCalendar" class="back-button">
+                            &larr; Back to Calendar
+                        </button>
+                        <h4 id="selectedDate">April 22, 2025</h4>
+                    </div>
+                    
+                    <div class="loading tee-times-loading" id="teeTimesLoading">
+                        <div class="spinner"></div>
+                        <p>Loading tee times...</p>
+                    </div>
+                    
+                    <div id="teeTimesList" class="tee-times-list"></div>
+                    
+                    <div id="noTeeTimes" class="no-tee-times" style="display: none;">
+                        <p>No tee times available for this date. Please select another date.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     
-    <script>
-        // Config - Cloudflare Worker URL
-        const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev"; // Your deployed worker URL
-        const APP_VERSION = "1.0.4"; // Version number for cache busting
-        const DEBUG = true; // Enable debug mode
+<!-- Booking Confirmation Modal -->
+<div class="modal-overlay" id="bookingModal">
+    <div class="modal booking-modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Book Your Tee Time</h3>
+            <button class="close-modal" id="closeBookingModal">&times;</button>
+        </div>
         
-        // DOM Elements - omitted for brevity - same as before
-        
-        // Debug functions
-        function log(message, data, isError = false) {
-            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-            let formattedMessage = `[${timestamp}] ${isError ? '[ERROR] ' : ''}${message}`;
+        <div class="modal-content">
+            <div class="tee-time-details" id="bookingDetails">
+                <strong>Monday, April 22, 2025 at 8:30 AM</strong>
+                <span>Brackenridge Park</span>
+                <span>4 spots available</span>
+            </div>
             
-            if (data) {
-                let dataStr;
-                try {
-                    dataStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-                } catch (e) {
-                    dataStr = `[Error stringifying data: ${e.message}]`;
-                }
-                debugLogs.textContent += `${formattedMessage}\n${dataStr}\n\n`;
-            } else {
-                debugLogs.textContent += `${formattedMessage}\n\n`;
-            }
-            
-            // Auto-scroll to bottom
-            debugLogs.scrollTop = debugLogs.scrollHeight;
-            
-            // Also log to console
-            if (isError) {
-                console.error(formattedMessage, data);
-            } else {
-                console.log(formattedMessage, data);
-            }
-        }
-        
-        // Error logging function
-        function logError(message, error) {
-            log(message, {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            }, true);
-        }
-        
-        // Toggle debug panel
-        toggleDebug.addEventListener('click', function() {
-            debugContent.style.display = debugContent.style.display === 'none' ? 'block' : 'none';
-        });
-        
-        // Clear debug logs
-        clearDebug.addEventListener('click', function() {
-            debugLogs.textContent = '';
-            log("Debug logs cleared");
-        });
-        
-        // Test Auth button
-        testAuthBtn.addEventListener('click', function() {
-            log("Testing authentication...");
-            
-            // Get authentication info
-            const cookies = localStorage.getItem('foreup_cookies');
-            const token = localStorage.getItem('jwt_token');
-            
-            log("Current auth info", {
-                hasCookies: !!cookies, 
-                hasJwt: !!token,
-                cookiesPreview: cookies ? cookies.substring(0, 30) + "..." : "none",
-                jwtPreview: token ? token.substring(0, 20) + "..." : "none"
-            });
-            
-            // Test with a request to courses endpoint
-            const headers = {};
-            
-            if (cookies) {
-                headers['X-ForeUp-Cookies'] = cookies;
-            }
-            
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            
-            log("Making test request with headers", headers);
-            
-            fetch(`${API_BASE_URL}/api/courses`, {
-                headers: headers
-            })
-            .then(response => {
-                log(`Test response status: ${response.status}`);
-                log("Test response headers", Object.fromEntries(response.headers.entries()));
-                return response.json();
-            })
-            .then(data => {
-                log("Test request succeeded", {
-                    hasUserData: !!data.user,
-                    hasCourses: !!data.courses || Array.isArray(data),
-                    userDataPreview: data.user ? {
-                        name: data.user.first_name + ' ' + data.user.last_name,
-                        hasJwt: !!data.user.jwt
-                    } : "none"
-                });
-            })
-            .catch(error => {
-                logError("Test request failed", error);
-            });
-        });
-        
-        // Show localStorage button
-        showLocalStorageBtn.addEventListener('click', function() {
-            const lsData = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                let value = localStorage.getItem(key);
-                
-                // If it's a cookie or JWT, truncate it for display
-                if (key === 'foreup_cookies' || key === 'jwt_token') {
-                    value = value.substring(0, 50) + '...';
-                }
-                
-                lsData[key] = value;
-            }
-            log("LocalStorage contents:", lsData);
-        });
-        
-        // Clear auth button
-        clearAuthBtn.addEventListener('click', function() {
-            localStorage.removeItem('foreup_cookies');
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('user_name');
-            log("Cleared all authentication data from localStorage");
-        });
-        
-        // Login function
-        function loginUser(username, password) {
-            log(`Attempting to login user: ${username}`);
-            
-            // Log the full URL we're calling
-            const loginUrl = `${API_BASE_URL}/api/login`;
-            log(`Making request to: ${loginUrl}`);
-            
-            try {
-                log("Sending login request", { username });
-                
-                fetch(loginUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password
-                    })
-                })
-                .then(response => {
-                    log(`Received login response with status: ${response.status}`);
-                    log(`Response headers:`, Object.fromEntries(response.headers.entries()));
+            <!-- Conditional content - show either booking form or call notice -->
+            <div id="bookingFormContainer">
+                <form id="bookingForm">
+                    <div class="form-group">
+                        <label>Number of Players</label>
+                        <div class="number-selector">
+                            <select id="playerCount">
+                                <option value="1">1 Player</option>
+                                <option value="2">2 Players</option>
+                                <option value="3">3 Players</option>
+                                <option value="4">4 Players</option>
+                            </select>
+                        </div>
+                    </div>
                     
-                    // Check if the response is JSON
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        return response.text().then(text => {
-                            log(`Non-JSON response received:`, text);
-                            throw new Error('Non-JSON response received');
-                        });
-                    }
+                    <div class="form-group">
+                        <label>Cart?</label>
+                        <div class="option-selector">
+                            <label><input type="radio" name="cart" value="yes"> Yes</label>
+                            <label><input type="radio" name="cart" value="no" checked> No</label>
+                        </div>
+                    </div>
                     
-                    return response.json();
-                })
-                .then(data => {
-                    log(`Login response parsed as JSON:`, data);
+                    <div class="form-group" id="holesSelector">
+                        <label>Holes</label>
+                        <div class="option-selector">
+                            <label><input type="radio" name="holes" value="9"> 9 Holes</label>
+                            <label><input type="radio" name="holes" value="18" checked> 18 Holes</label>
+                        </div>
+                    </div>
                     
-                    if (data.error) {
-                        log(`Error in response: ${data.message || 'Unknown error'}`);
-                        throw new Error(data.message || 'Unknown error');
-                    }
-                    
-                    // Store cookies if received (even if login wasn't fully successful)
-                    if (data.cookies) {
-                        localStorage.setItem('foreup_cookies', data.cookies);
-                        log(`Stored ForeUp cookies in localStorage`);
-                        log(`Cookie value (first 50 chars): ${data.cookies.substring(0, 50)}...`);
-                    }
-                    
-                    // Store JWT token if present
-                    if (data.jwt) {
-                        localStorage.setItem('jwt_token', data.jwt);
-                        log(`Stored JWT token in localStorage`, data.jwt.substring(0, 20) + "...");
-                    } else {
-                        log("No JWT token received in response");
-                    }
-                    
-                    // Handle "Refresh required" from ForeUp with cookies
-                    if (data.success === false && (data.msg === "Refresh required." || data.msg === "Refresh required")) {
-                        log("Received 'Refresh required' message");
-                        
-                        // If we got cookies, try to verify if they work using courses request
-                        if (data.cookies) {
-                            log("Got cookies despite 'Refresh required' message. Testing cookies...");
-                            testAuth(true);
-                            return; // Exit early to wait for the test
-                        } else {
-                            log("No cookies received with 'Refresh required' message");
-                            // No cookies, show the redirect UI
-                            showRefreshRequiredUI();
-                            return;
-                        }
-                    }
-                    
-                    if (data.success === false) {
-                        log(`Login failed: ${data.msg || 'Login failed'}`);
-                        throw new Error(data.msg || 'Login failed');
-                    }
-                    
-                    // Show logged in state if we have at least one form of authentication
-                    if (data.jwt || data.cookies) {
-                        // Store user name if provided
-                        if (data.first_name && data.last_name) {
-                            localStorage.setItem('user_name', data.first_name + ' ' + data.last_name);
-                            log(`Stored user name: ${data.first_name} ${data.last_name}`);
-                        }
-                        
-                        showLoggedInState();
-                    } else {
-                        log("No authentication received");
-                        throw new Error('No authentication received');
-                    }
-                })
-                .catch(error => {
-                    logError("Login error", error);
-                    loginForm.style.display = 'block';
-                    loadingIndicator.style.display = 'none';
-                    showMessage(error.message || 'Login failed. Please check your credentials and try again.', 'error');
-                });
-            } catch (error) {
-                logError("Unexpected error during login", error);
-                loginForm.style.display = 'block';
-                loadingIndicator.style.display = 'none';
-                showMessage("An unexpected error occurred: " + error.message, 'error');
-            }
-        }
+                    <div class="booking-actions">
+                        <button type="button" id="cancelBookingBtn" class="secondary-btn">Cancel</button>
+                        <button type="submit" id="bookNowBtn" class="book-btn">Book Now</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div id="callNoticeContainer" style="display: none;">
+                <p>Single players need to call the pro shop to book completely open tee times.</p>
+                <div class="booking-actions">
+                    <button type="button" id="cancelCallBtn" class="secondary-btn">Cancel</button>
+                    <button type="button" id="makeCallBtn" class="call-btn">Call Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Call Confirmation Modal -->
+<div class="modal-overlay" id="callConfirmModal">
+    <div class="modal call-confirm-modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Book Your Tee Time</h3>
+            <button class="close-modal" id="closeCallConfirmModal">&times;</button>
+        </div>
         
-        // Test authentication
-        function testAuth(showLoginOnFailure = false) {
-            // Get authentication info
-            const cookies = localStorage.getItem('foreup_cookies');
-            const token = localStorage.getItem('jwt_token');
+        <div class="modal-content">
+            <p>Call the pro shop to book this tee time:</p>
+            <div class="tee-time-details" id="callConfirmDetails">
+                <strong>Monday, April 22, 2025 at 8:30 AM</strong>
+                <span>Brackenridge Park</span>
+            </div>
             
-            log("Testing authentication", {
-                hasCookies: !!cookies, 
-                hasJwt: !!token
-            });
-            
-            // If no auth credentials, return failed
-            if (!cookies && !token) {
-                log("No authentication credentials found");
-                if (showLoginOnFailure) {
-                    log("Showing login form due to no auth");
-                    loginForm.style.display = 'block';
-                    loadingIndicator.style.display = 'none';
-                }
-                return Promise.resolve(false);
-            }
-            
-            // Test with a request to courses endpoint
-            const headers = {};
-            
-            if (cookies) {
-                headers['X-ForeUp-Cookies'] = cookies;
-            }
-            
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            
-            log("Making auth test request with headers", headers);
-            
-            return fetch(`${API_BASE_URL}/api/courses`, {
-                headers: headers
-            })
-            .then(response => {
-                log(`Auth test response status: ${response.status}`);
-                
-                if (!response.ok) {
-                    log("Auth test request failed with status: " + response.status);
-                    if (showLoginOnFailure) {
-                        log("Showing login form due to failed auth test");
-                        loginForm.style.display = 'block';
-                        loadingIndicator.style.display = 'none';
-                    }
-                    return false;
-                }
-                
-                return response.json().then(data => {
-                    const isAuthenticated = !!data.user;
-                    
-                    log(`Auth test result: ${isAuthenticated ? 'Authenticated' : 'Not authenticated'}`);
-                    
-                    if (isAuthenticated) {
-                        // Update user info if available
-                        if (data.user) {
-                            log("User data retrieved from auth test", {
-                                name: data.user.first_name + ' ' + data.user.last_name,
-                                hasJwt: !!data.user.jwt
-                            });
-                            
-                            // Store user name
-                            localStorage.setItem('user_name', data.user.first_name + ' ' + data.user.last_name);
-                            userName.textContent = data.user.first_name + ' ' + data.user.last_name;
-                            
-                            // Store JWT if present and we don't already have one
-                            if (data.user.jwt && !token) {
-                                localStorage.setItem('jwt_token', data.user.jwt);
-                                log("Stored JWT token from auth test", data.user.jwt.substring(0, 20) + "...");
-                            }
-                        }
-                        
-                        if (showLoginOnFailure) {
-                            // Show logged in state
-                            showLoggedInState();
-                        }
-                    } else if (showLoginOnFailure) {
-                        log("Showing login form due to no user data");
-                        loginForm.style.display = 'block';
-                        loadingIndicator.style.display = 'none';
-                    }
-                    
-                    return isAuthenticated;
-                });
-            })
-            .catch(error => {
-                logError("Auth test request failed", error);
-                
-                if (showLoginOnFailure) {
-                    log("Showing login form due to auth test error");
-                    loginForm.style.display = 'block';
-                    loadingIndicator.style.display = 'none';
-                }
-                
-                return false;
-            });
-        }
-        
-        // Function to show the refresh required UI
-        function showRefreshRequiredUI() {
-            loginForm.style.display = 'block';
-            loadingIndicator.style.display = 'none';
-            
-            // Clear existing message content
-            loginMessage.innerHTML = '';
-            loginMessage.className = 'status-message warning';
-            
-            // Add message and button
-            const msgText = document.createElement('p');
-            msgText.textContent = 'ForeUp requires you to log in through their website first.';
-            loginMessage.appendChild(msgText);
-            
-            const redirectBtn = document.createElement('button');
-            redirectBtn.textContent = 'Log in on ForeUp';
-            redirectBtn.style.marginTop = '10px';
-            redirectBtn.onclick = function() {
-                // Open ForeUp login in a new window
-                log("Opening ForeUp login page in new window");
-                const loginWindow = window.open('https://foreupsoftware.com/index.php/booking/20103/3564#/login', '_blank');
-                
-                // Add a message about returning after login
-                const returnMsg = document.createElement('p'); 
-                returnMsg.textContent = 'After logging in on ForeUp, return here and try again.';
-                returnMsg.style.marginTop = '10px';
-                loginMessage.appendChild(returnMsg);
-                
-                if (!loginWindow) {
-                    log("ERROR: Popup blocker prevented opening the ForeUp login window");
-                    const errorMsg = document.createElement('p');
-                    errorMsg.textContent = 'Popup blocker prevented opening the login window. Please allow popups for this site.';
-                    errorMsg.style.color = 'red';
-                    loginMessage.appendChild(errorMsg);
-                }
-            };
-            loginMessage.appendChild(redirectBtn);
-        }
-        
-        // Check if user is already logged in
-        function checkLogin() {
-            // Check for authentication in localStorage
-            const cookies = localStorage.getItem('foreup_cookies');
-            const token = localStorage.getItem('jwt_token');
-            
-            log("Checking for existing authentication");
-            log(`JWT token exists: ${!!token}`);
-            log(`Cookies exist: ${!!cookies}`);
-            
-            if (token || cookies) {
-                log("Found authentication, testing validity...");
-                
-                // Show loading indicator while checking
-                loginForm.style.display = 'none';
-                loadingIndicator.style.display = 'block';
-                
-                // Test authentication
-                testAuth(true);
-                return true;
-            }
-            
-            log("No authentication found");
-            return false;
-        }
-        
-        // Handle login form submission
-        loginFormElement.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            if (!username || !password) {
-                showMessage('Please enter both username and password.', 'error');
-                return;
-            }
-            
-            // Show loading indicator
-            loginForm.style.display = 'none';
-            loadingIndicator.style.display = 'block';
-            
-            // Send login request to worker
-            loginUser(username, password);
-        });
-        
-        // Show logged in state
-        function showLoggedInState() {
-            log("Showing logged in state");
-            
-            // Hide login form and loading
-            loginForm.style.display = 'none';
-            loadingIndicator.style.display = 'none';
-            
-            // Show courses container
-            coursesContainer.style.display = 'block';
-            
-            // Show user info
-            userInfo.style.display = 'block';
-            const storedName = localStorage.getItem('user_name') || 'San Antonio Golfer';
-            userName.textContent = storedName;
-            
-            // Load and render courses
-            loadCourses();
-        }
-        
-        // Load courses from the worker
-        function loadCourses() {
-            log("Loading golf courses");
-            loadingIndicator.style.display = 'block';
-            
-            // Get authentication info
-            const cookies = localStorage.getItem('foreup_cookies');
-            const token = localStorage.getItem('jwt_token');
-            const headers = {};
-            
-            if (cookies) {
-                headers['X-ForeUp-Cookies'] = cookies;
-                log("Including cookies in courses request");
-                log(`Cookie value (first 50 chars): ${cookies.substring(0, 50)}...`);
-            }
-            
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-                log("Including JWT token in courses request", token.substring(0, 20) + "...");
-            }
-            
-            log(`Making request to: ${API_BASE_URL}/api/courses`);
-            log("Request headers", headers);
-            
-            fetch(`${API_BASE_URL}/api/courses`, {
-                headers: headers
-            })
-            .then(response => {
-                log(`Received courses response with status: ${response.status}`);
-                log("Response headers", Object.fromEntries(response.headers.entries()));
-                return response.json();
-            })
-            .then(data => {
-                log(`Courses loaded`, { 
-                    courseCount: Array.isArray(data) ? data.length : (data.courses ? data.courses.length : 'unknown') 
-                });
-                
-                // Check if we got user data along with courses
-                if (data.user && data.courses) {
-                    log("Received user data with courses", {
-                        userName: data.user.first_name + ' ' + data.user.last_name,
-                        hasJwt: !!data.user.jwt
-                    });
-                    
-                    // Update user name
-                    localStorage.setItem('user_name', data.user.first_name + ' ' + data.user.last_name);
-                    userName.textContent = data.user.first_name + ' ' + data.user.last_name;
-                    
-                    // Store JWT if present
-                    if (data.user.jwt) {
-                        localStorage.setItem('jwt_token', data.user.jwt);
-                        log("Stored JWT token from user data", data.user.jwt.substring(0, 20) + "...");
-                    }
-                    
-                    // Render courses
-                    renderCourses(data.courses);
-                } else {
-                    // Just render courses
-                    renderCourses(Array.isArray(data) ? data : []);
-                }
-                
-                loadingIndicator.style.display = 'none';
-            })
-            .catch(error => {
-                logError("Error loading courses", error);
-                loadingIndicator.style.display = 'none';
-                showMessage('Failed to load golf courses. Please try again later.', 'error');
-            });
-        }
-        
-        // Load tee times for a selected course
-        function loadTeetimes(course) {
-            courseName.textContent = course.name;
-            
-            // Show loading
-            loadingIndicator.style.display = 'block';
-            coursesContainer.style.display = 'none';
-            
-            // Format date for API request (MM-DD-YYYY)
-            const selectedDate = new Date(datePicker.value);
-            const formattedDate = `${selectedDate.getMonth() + 1}-${selectedDate.getDate()}-${selectedDate.getFullYear()}`;
-            
-            // Get authentication info
-            const cookies = localStorage.getItem('foreup_cookies');
-            const token = localStorage.getItem('jwt_token');
-            
-            log(`Loading tee times for ${course.name} on ${formattedDate}`);
-            log(`Using cookies: ${cookies ? 'Yes' : 'No'}`);
-            log(`Using JWT token: ${token ? 'Yes' : 'No'}`);
-            
-            // Prepare headers
-            const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-                log("Added JWT token to headers", token.substring(0, 20) + "...");
-            }
-            if (cookies) {
-                headers['X-ForeUp-Cookies'] = cookies;
-                log("Added cookies to headers", cookies.substring(0, 50) + "...");
-            }
-            
-            log("Request headers for tee times", headers);
-            
-            // Generate the request URL
-            const teeTimesUrl = `${API_BASE_URL}/api/teetimes?courseId=${course.courseId}&facilityId=${course.facilityId}&date=${formattedDate}`;
-            log(`Making request to: ${teeTimesUrl}`);
-            
-            // Fetch tee times from worker
-            fetch(teeTimesUrl, {
-                headers: headers
-            })
-            .then(response => {
-                log(`Received tee times response with status: ${response.status}`);
-                log("Response headers", Object.fromEntries(response.headers.entries()));
-                
-                // Check if the response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return response.text().then(text => {
-                        log(`Non-JSON tee times response:`, text);
-                        throw new Error('Non-JSON response received');
-                    });
-                }
-                
-                return response.json();
-            })
-            .then(data => {
-                log(`Tee times loaded:`, { 
-                    count: Array.isArray(data) ? data.length : 'not an array',
-                    sample: Array.isArray(data) && data.length > 0 ? data[0] : data
-                });
-                
-                renderTeetimes(data);
-                loadingIndicator.style.display = 'none';
-                teetimesContainer.style.display = 'block';
-            })
-            .catch(error => {
-                logError("Error loading tee times", error);
-                loadingIndicator.style.display = 'none';
-                coursesContainer.style.display = 'block';
-                showMessage('Failed to load tee times. Please try again later.', 'error');
-            });
-        }
-        
-        // Rest of your code - renderCourses, renderTeetimes, etc.
-        
-        // Initialize the page
-        document.addEventListener('DOMContentLoaded', function() {
-            log(`Application initialized (version ${APP_VERSION})`);
-            log(`Debug mode: ${DEBUG ? 'Enabled' : 'Disabled'}`);
-            
-            // Show debug panel by default in this version
-            debugContent.style.display = 'block';
-            
-            // Log browser information
-            log("Browser information", {
-                userAgent: navigator.userAgent,
-                platform: navigator.platform,
-                language: navigator.language
-            });
-            
-            // Check if user is already logged in
-            if (!checkLogin()) {
-                loginForm.style.display = 'block';
-            }
-            
-            // Perform health check
-            fetch(`${API_BASE_URL}/health`)
-                .then(response => response.json())
-                .then(data => {
-                    log(`API health check:`, data);
-                })
-                .catch(error => {
-                    logError("API health check failed", error);
-                    showMessage('Cannot connect to API. Please check your connection or try again later.', 'error');
-                });
-        });
-    </script>
+            <div class="call-actions">
+                <button id="cancelCallBtn" class="secondary-btn">Cancel</button>
+                <button id="makeCallBtn" class="call-btn">Call Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+    <!-- Version Tag -->
+    <div class="version-tag">v1.0.7</div>
+    
+    <script src="scripts.js"></script>
 </body>
 </html>

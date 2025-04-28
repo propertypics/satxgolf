@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem('login_data');
             localStorage.removeItem('user_bookings');
             checkLogin(); // Update UI immediately
-            window.location.href = 'index3.html'; // Redirect to courses page after logout
+            window.location.href = 'index.html'; // Redirect to courses page after logout
         });
     } else {
         console.warn("Logout button not found on stats page.");
