@@ -688,7 +688,6 @@ function storeBookingInLocalStorage(reservationId, bookingContext, responseData)
 
 // --- Stats Page Functions --- (Include if used)
 function getRuleType(ruleName) { if (!ruleName) return 'standard'; /* ... more logic ... */ return 'standard'; }
-function initializeStatsPage() { console.log('Initializing stats page...'); /* ... full implementation ... */ }
 function formatDate(dateStr) { if (!dateStr) return 'N/A'; try { /* ... date formatting ... */ } catch(e){ return dateStr; } }
 
 // --- Phone Call Functionality --- (Include if used)
@@ -802,23 +801,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Load Courses (Index Page Specific)
         loadCourses();
-
-    } else if (document.getElementById('statsContainer')) {
-        // --- Code specific to mystats.html ---
-        console.log('Initializing Stats Page (mystats.html)...');
-        // Stats page specific listeners (if any) would go here
-        if (typeof initializeStatsPage === 'function') {
-            initializeStatsPage();
-        } else { console.error('initializeStatsPage function missing'); }
-      // **** ADD CALL TO INITIALIZE FINANCIALS ****
-        if (typeof initializeFinancialsSection === 'function') {
-              console.log("DEBUG: Calling initializeFinancialsSection...");
-             initializeFinancialsSection(); // Call the function from financials.js
-        } else {
-             console.error('initializeFinancialsSection function missing! Financials will not load.');
-             const fsDiv = document.getElementById('financialSummary');
-             if(fsDiv) fsDiv.innerHTML = '<p style="color:red;">Error: Financials script missing.</p>';
-        }
 
     } else {
         // --- Fallback for Unknown Pages ---
