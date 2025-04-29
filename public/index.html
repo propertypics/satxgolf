@@ -13,6 +13,7 @@
     <header>
         <div class="container header-content">
             <div class="logo">
+                <!-- SVG Logo -->
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 18V2"/>
                     <path d="M8 6h8"/>
@@ -25,10 +26,16 @@
                 <span>SATX Golf</span>
             </div>
             <div class="nav-links">
-                <a href="index3.html" class="active">Courses</a>
-                <a href="mystats.html" id="statsLink" style="display: none;">My Stats</a>
+                <!-- Ensure link points to index.html -->
+                <a href="index.html" class="nav-link">Courses</a>
+                <!-- Add style="display: none;" -->
+                <a href="mystats.html" id="statsLink" class="nav-link" style="display: none;">My Stats</a>
+                 <!-- Add the Login Button -->
+                 <button class="header-btn login-header-btn" id="loginHeaderBtn">Login</button>
+                 <!-- End Login Button -->
             </div>
-            <div class="user-info" id="userInfo">
+            <!-- Add style="display: none;" -->
+            <div class="user-info" id="userInfo" style="display: none;">
                 <span class="user-name" id="userName">User</span>
                 <button class="logout-btn" id="logoutBtn">Logout</button>
             </div>
