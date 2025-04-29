@@ -956,3 +956,139 @@ footer {
     border-top-color: white;
     animation: spin 1s ease-in-out infinite;
 }
+
+
+/* === Financial Summary Styles === */
+
+/* Style the card containing the financial info (reuse existing if applicable) */
+/* Ensure the .stats-card styles provide adequate padding */
+/* .stats-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+} */
+
+/* Style the H3 title within the financial card */
+#financialSummary h3 {
+    margin-top: 0; /* Remove default top margin if needed */
+    margin-bottom: 15px;
+    font-size: 1.1rem; /* Slightly smaller than main card titles perhaps */
+    color: #333;
+    border-bottom: 1px solid #eee; /* Optional separator */
+    padding-bottom: 10px; /* Spacing below separator */
+}
+
+/* Styling for the list showing spending per course */
+.financial-list {
+    list-style: none; /* Remove default bullet points */
+    padding: 0;
+    margin: 0;
+    font-size: 0.95rem; /* Adjust base size */
+}
+
+.financial-list li {
+    display: flex; /* Align course name and amount side-by-side */
+    justify-content: space-between; /* Push amount to the right */
+    padding: 8px 0; /* Vertical spacing between items */
+    border-bottom: 1px solid #f5f5f5; /* Light separator */
+    color: #555; /* Slightly lighter text color */
+}
+
+.financial-list li:last-child {
+    border-bottom: none; /* Remove border from last item */
+}
+
+.financial-list .course-name {
+    font-weight: 500; /* Make course name slightly bolder */
+    color: #333; /* Darker color for course name */
+}
+
+.financial-list .amount {
+    font-weight: 600; /* Make amount bold */
+    color: #4CAF50; /* Use primary color for amount */
+}
+
+/* Style for loading/error messages within the summary div */
+#financialSummary p {
+    color: #666;
+    font-style: italic;
+    padding: 10px 0;
+}
+#financialSummary p[style*="color: red"] { /* Style error messages */
+     font-style: normal;
+     font-weight: 500;
+}
+
+
+/* === Button Styles === */
+
+/* Ensure secondary button style is defined */
+/* If you already have .secondary-btn styled well, you might not need this */
+/* Otherwise, define or adjust it */
+.secondary-btn {
+    background-color: #f5f5f5;
+    color: #555;
+    border: 1px solid #ddd;
+    padding: 8px 15px; /* Adjust padding */
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px; /* Slightly smaller maybe */
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+}
+
+.secondary-btn:hover,
+.secondary-btn:focus {
+    background-color: #e0e0e0; /* Darken slightly on hover */
+    border-color: #ccc;
+    color: #333;
+    outline: none;
+}
+
+/* Style for disabled buttons (like refresh during load) */
+.secondary-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    background-color: #f5f5f5; /* Keep background */
+    color: #999; /* Dim text */
+}
+
+
+/* Specific spacing for the financial buttons if needed */
+#exportCsvBtn {
+    /* margin-top: 15px; already inline */
+}
+
+#refreshFinancialsBtn {
+     /* margin-top: 15px; margin-left: 10px; already inline */
+}
+
+/* === Responsive Adjustments (Example) === */
+@media screen and (max-width: 480px) {
+    .financial-list li {
+        flex-direction: column; /* Stack name and amount on small screens */
+        align-items: flex-start; /* Align left */
+        gap: 4px; /* Add small gap */
+        padding: 10px 0;
+    }
+
+    .financial-list .amount {
+        /* Optional: Indent amount slightly */
+        /* padding-left: 10px; */
+    }
+
+    /* Stack buttons or adjust margins */
+    #exportCsvBtn,
+    #refreshFinancialsBtn {
+         display: block; /* Make them full width */
+         width: 100%;
+         margin-left: 0; /* Remove left margin */
+         margin-bottom: 10px; /* Add bottom margin */
+    }
+     #exportCsvBtn:last-child,
+     #refreshFinancialsBtn:last-child {
+          margin-bottom: 0;
+     }
+}
