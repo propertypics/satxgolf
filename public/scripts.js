@@ -1,21 +1,3 @@
-
-
-// --- START OF FILE scripts.js ---
-
-const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev";
-const APP_VERSION = "1.0.11"; // Updated version reflecting 2-step booking
-
-// Helper function to safely get elements
-function getElement(id, errorMessage, isCritical = true) {
-    const element = document.getElementById(id);
-    if (!element && isCritical) {
-        console.error(errorMessage || `CRITICAL: Element with id '${id}' not found`);
-    } else if (!element && !isCritical) {
-         console.warn(errorMessage || `Warning: Element with id '${id}' not found`);
-    }
-    return element;
-}
-
 // --- Get DOM Elements ---
 const loginHeaderBtn = getElement('loginHeaderBtn', 'Login button in header not found', false);
 const courseGrid = getElement('courseGrid', 'Course grid element not found. Course display will fail.', false);
@@ -93,18 +75,6 @@ const courseImages = {
 // ---^^^--- Make sure to fill in your actual mappings here ---^^^---
 
 // --- Modal Functions ---
-function showModal(modalElement) {
-    if (modalElement) {
-        modalElement.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
-function hideModal(modalElement) {
-    if (modalElement) {
-        modalElement.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-}
 function hideLoginModal() { hideModal(loginModal); }
 function showLoginModal() { showModal(loginModal); }
 function hideTeeTimeModal() {
@@ -120,27 +90,6 @@ function hideCallConfirmModal() { hideModal(callConfirmModal); }
 function showCallConfirmModal() { showModal(callConfirmModal); }
 
 // --- Login/Auth Functions ---
-function checkLogin() {
-    const token = localStorage.getItem('jwt_token');
-    const storedName = localStorage.getItem('user_name');
-    const localUserInfo = document.getElementById('userInfo');
-    const localUserName = document.getElementById('userName');
-    const localStatsLink = document.getElementById('statsLink');
-    const localLoginHeaderBtn = document.getElementById('loginHeaderBtn');
-
-    if (token) { // User IS logged in
-        if (storedName && localUserName) localUserName.textContent = storedName;
-        if (localUserInfo) localUserInfo.style.display = 'flex';
-        if (localStatsLink) localStatsLink.style.display = 'inline';
-        if (localLoginHeaderBtn) localLoginHeaderBtn.style.display = 'none';
-        return true;
-    } else { // User IS NOT logged in
-        if (localUserInfo) localUserInfo.style.display = 'none';
-        if (localStatsLink) localStatsLink.style.display = 'none';
-        if (localLoginHeaderBtn) localLoginHeaderBtn.style.display = 'inline';
-        return false;
-    }
-}
 
 
 
@@ -688,7 +637,6 @@ function storeBookingInLocalStorage(reservationId, bookingContext, responseData)
 
 // --- Stats Page Functions --- (Include if used)
 function getRuleType(ruleName) { if (!ruleName) return 'standard'; /* ... more logic ... */ return 'standard'; }
-function formatDate(dateStr) { if (!dateStr) return 'N/A'; try { /* ... date formatting ... */ } catch(e){ return dateStr; } }
 
 // --- Phone Call Functionality --- (Include if used)
 function makePhoneCall() { const phoneNumber = '12102127572'; window.location.href = `tel:${phoneNumber}`; /* ... rest of function ... */ }
