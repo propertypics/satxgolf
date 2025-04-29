@@ -17,108 +17,192 @@ const FINANCIAL_CACHE_KEY = 'user_financial_details_cache';
  * @param {boolean} [forceRefresh=false] - If true, bypasses cache check.
  * @returns {Promise<Array>} A promise resolving with the array of detailed transaction objects.
  */
-async function getFinancialDetails(forceRefresh = false) {
-    console.log(`FINANCIALS: Getting financial details... Force refresh: ${forceRefresh}`);
-    // Use shared getElement from utils.js if available, otherwise fallback
+// Main Function to Initialize Financials UI
+async function initializeFinancialsSection() {
+    console.log("FINANCIALS: Initializing section (async)...");
     const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
+    const financialSummaryDiv = getElementFunc('financialSummary', '...', false);
+    // ... (get other buttons, loader, container) ...
 
-    const cachedDataString = localStorage.getItem(FINANCIAL_CACHE_KEY);
-    const loginDataStr = localStorage.getItem('login_data');
-    let cachedData = null;
+    let fullTransactionData = []; // Holds the detailed results from the worker
+    let originalSalesList = []; // <<< ADDED: Holds the initial {saleId, courseId} list
 
-    if (!loginDataStr) {
-        console.error("FINANCIALS: Login data not found.");
-        throw new Error("Login data not found. Cannot process financials.");
-    }
+    // Helper to finalize UI
+    const finalizeUI = () => { /* ... hide loader, show container ... */ };
 
-    let currentLoginDataIdentifier = '';
-    let salesToFetch = [];
+    if (!financialSummaryDiv) { /* ... handle missing element ... */ finalizeUI(); return; }
 
-    // Prepare sales list and identifier from login_data
+    financialSummaryDiv.innerHTML = '<p>Loading financial summary...</p>';
+    // ... (hide buttons etc.) ...
+
     try {
+        // --- Regenerate the original saleId/courseId list ---
+        // This duplicates logic from getFinancialDetails but ensures we have the mapping
+        const loginDataStr = localStorage.getItem('login_data');
+        if (!loginDataStr) throw new Error("Login data missing for financials.");
         const loginData = JSON.parse(loginDataStr);
-        let salesListString = '';
         const uniqueSales = new Map();
-        // Use shared getSanAntonioCourses from utils.js
         const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
-        if (courses.length === 0) console.warn("FINANCIALS: Course list is empty in getFinancialDetails.");
 
-        if (loginData.passes && typeof loginData.passes === 'object') {
-            const passIds = Object.keys(loginData.passes);
-            if (passIds.length > 0) {
-                const pass = loginData.passes[passIds[0]];
-                if (pass && pass.uses && Array.isArray(pass.uses)) {
-                    pass.uses.forEach(use => {
-                        const saleId = use.sale_id;
-                        const teesheetId = use.teesheet_id; // Use teesheet_id for mapping
-                        if (saleId && teesheetId) {
-                            // Find courseId using the mapping function
-                            const matchingCourse = courses.find(course => String(course.facilityId) === String(teesheetId));
-                            const courseId = matchingCourse ? String(matchingCourse.courseId) : null;
-                            if (courseId) {
-                                const key = `${saleId}-${courseId}`;
-                                if (!uniqueSales.has(key)) {
-                                    uniqueSales.set(key, { saleId: String(saleId), courseId: courseId });
-                                    salesListString += `${key};`;
-                                }
-                            } else { /* console.warn(`FINANCIALS: Could not map teesheet_id: ${teesheetId}`); */ }
+        if (loginData.passes?.passes[Object.keys(loginData.passes)[0]]?.uses) { // Safer access
+             const uses = loginData.passes[Object.keys(loginData.passes)[0]].uses;
+             uses.forEach(use => {
+                const saleId = use.sale_id;
+                const teesheetId = use.teesheet_id;
+                if (saleId && teesheetId) {
+                    const matchingCourse = courses.find(course => String(course.facilityId) === String(teesheetId));
+                    const courseId = matchingCourse ? String(matchingCourse.courseId) : null;
+                    if (courseId) {
+                        const key = `${saleId}-${courseId}`;
+                        if (!uniqueSales.has(key)) {
+                            uniqueSales.set(key, { saleId: String(saleId), courseId: courseId });
                         }
-                    });
+                    }
                 }
-            }
+             });
         }
-        salesToFetch = Array.from(uniqueSales.values());
-        // Use shared simpleHash from utils.js
-        currentLoginDataIdentifier = typeof simpleHash === 'function' ? simpleHash(salesListString.split(';').sort().join(';')) : Date.now().toString();
-        console.log(`FINANCIALS: Current login_data identifier: ${currentLoginDataIdentifier}`);
-        console.log(`FINANCIALS: Unique Sales to fetch details for: ${salesToFetch.length}`);
-    } catch (e) {
-        console.error("FINANCIALS: Error processing login_data:", e);
-        throw new Error("Could not process login data.");
+        originalSalesList = Array.from(uniqueSales.values()); // <<< STORE the mapping list
+        console.log("FINANCIALS: Regenerated original sales list for mapping:", originalSalesList);
+        // --- End Regenerate ---
+
+
+        // Get detailed data (cached or fetched)
+        fullTransactionData = await getFinancialDetails(); // Use await
+
+        // Calculate and display summary, passing the original list for lookup
+        displaySummary(fullTransactionData, originalSalesList); // <<< PASS the mapping list
+
+    } catch (error) {
+        console.error("FINANCIALS: Error loading initial financial details:", error);
+        if(financialSummaryDiv) financialSummaryDiv.innerHTML = `<p style="color: red;">Error loading financial summary: ${error.message}</p>`;
+    } finally {
+        finalizeUI(); // Ensure UI updates
+        // ... (re-enable refresh button) ...
     }
 
-    // Check Cache
-    if (cachedDataString && !forceRefresh) {
-        try {
-            cachedData = JSON.parse(cachedDataString);
-            if (cachedData?.loginDataIdentifier === currentLoginDataIdentifier) {
-                console.log("FINANCIALS: Using cached data.");
-                return cachedData.transactions; // Return valid cached data
-            } else { console.log(`FINANCIALS: Cache invalid.`); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
-        } catch (e) { console.error("FINANCIALS: Error parsing cache:", e); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
-    }
 
-    // Fetch Fresh Data
-    if (salesToFetch.length === 0) {
-         console.log("FINANCIALS: No sales found to fetch details for.");
-         const emptyCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: [] };
-         localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(emptyCache)); // Cache empty result
-         return []; // Return empty array
-    }
-    console.log(`FINANCIALS: Fetching fresh details for ${salesToFetch.length} sales...`);
-    const token = localStorage.getItem('jwt_token'); const cookies = localStorage.getItem('foreup_cookies');
-    if (!token) throw new Error("Authentication required.");
+    // --- Internal helper to display summary ---
+    // *** MODIFIED to accept originalSalesList ***
+    function displaySummary(transactionDetails, saleIdToCourseIdMap) {
+        if (!financialSummaryDiv) return;
 
-    // Use shared API_BASE_URL from utils.js
-    const workerApiUrl = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'https://missing-api-base-url.com') + '/api/sale-details';
+        if (!transactionDetails || transactionDetails.length === 0) {
+             financialSummaryDiv.innerHTML = '<h3>Spending This Year</h3><p>No financial data found.</p>';
+             if (exportCsvBtn) exportCsvBtn.style.display = 'none';
+             return;
+        }
 
-    try {
-        console.log(`FINANCIALS: Calling worker endpoint: ${workerApiUrl}`);
-        const response = await fetch(workerApiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'X-ForeUp-Cookies': cookies || '' },
-            body: JSON.stringify({ sales: salesToFetch }) // Send { sales: [...] } structure
+        const currentYear = new Date().getFullYear();
+        const spendingByCourse = {};
+        const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
+
+        transactionDetails.forEach(saleDetail => {
+             const saleAttributes = saleDetail?.data?.attributes;
+             const saleId = saleDetail?.data?.id; // Get ID from the fetched detail
+             const saleTime = saleAttributes?.saleTime;
+             const saleTotal = parseFloat(saleAttributes?.total || 0);
+
+             // *** Look up the courseId using the saleId from the original list ***
+             const originalSaleInfo = saleIdToCourseIdMap.find(s => String(s.saleId) === String(saleId));
+             const saleCourseId = originalSaleInfo ? originalSaleInfo.courseId : null;
+             // *** End lookup ***
+
+             console.log(`FINANCIALS Display: Processing SaleID: ${saleId}, Found CourseID: ${saleCourseId}, Time: ${saleTime}, Total: ${saleTotal}`); // Add log
+
+             if (saleTime && saleCourseId && !isNaN(saleTotal)) {
+                 if (new Date(saleTime).getFullYear() === currentYear) {
+                      // Map courseId to name
+                      const course = courses.find(c => String(c.courseId) === String(saleCourseId));
+                      const courseName = course ? course.name : `Course ID ${saleCourseId}`;
+                      spendingByCourse[courseName] = (spendingByCourse[courseName] || 0) + saleTotal;
+                 }
+             } else {
+                 console.warn("FINANCIALS Display: Skipping sale for summary due to missing data:", {saleId, saleTime, saleCourseId, saleTotal});
+             }
         });
-        if (!response.ok) { const errorText = await response.text(); throw new Error(`Failed to fetch sale details: ${response.status} - ${errorText}`); }
-        const freshTransactions = await response.json();
-        console.log(`FINANCIALS: Successfully fetched details for ${freshTransactions.length} sales.`);
 
-        // Cache the fresh data
-        const dataToCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: freshTransactions };
-        try { localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(dataToCache)); console.log("FINANCIALS: Data cached."); }
-        catch (e) { console.error("FINANCIALS: Error caching data:", e); } // Continue even if caching fails
-        return freshTransactions;
-    } catch (error) { console.error("FINANCIALS: Error fetching sale details:", error); throw error; } // Re-throw
+        // Generate HTML (same as before)
+        const summaryListHtml = Object.entries(spendingByCourse) /* ... sort ... */ .map(/* ... generate li ... */).join('');
+        financialSummaryDiv.innerHTML = `<h3>Spending This Year</h3><ul class="financial-list">${summaryListHtml}${Object.keys(spendingByCourse).length === 0 ? '<li>No spending recorded this year.</li>' : ''}</ul>`;
+
+        // Show export button
+        if (exportCsvBtn && transactionDetails.length > 0) exportCsvBtn.style.display = 'inline-block';
+        else if (exportCsvBtn) exportCsvBtn.style.display = 'none';
+
+    } // End displaySummary helper
+
+
+    // --- Add Listener for Export Button ---
+     if (exportCsvBtn) {
+        exportCsvBtn.replaceWith(exportCsvBtn.cloneNode(true));
+        const newExportCsvBtn = document.getElementById('exportCsvBtn');
+        if (newExportCsvBtn) {
+            // *** Pass the originalSalesList to the CSV generator too ***
+            newExportCsvBtn.addEventListener('click', () => generateAndDownloadCsv(fullTransactionData, originalSalesList));
+        }
+    }
+
+     // --- Add Listener for Refresh Button ---
+    if (refreshFinancialsBtn) {
+        refreshFinancialsBtn.replaceWith(refreshFinancialsBtn.cloneNode(true));
+        const newRefreshBtn = document.getElementById('refreshFinancialsBtn');
+        if (newRefreshBtn) {
+             newRefreshBtn.addEventListener('click', async () => {
+                 // ... (show refreshing message, disable button) ...
+                 try {
+                    // We need the latest originalSalesList again after refresh potentially
+                    // Re-run the list generation (could be a separate function)
+                    const loginDataStr = localStorage.getItem('login_data');
+                    if (!loginDataStr) throw new Error("Login data missing for refresh.");
+                    const loginData = JSON.parse(loginDataStr);
+                    const uniqueSales = new Map(); const courses = getSanAntonioCourses();
+                    // ... (loop through loginData.passes.uses to build uniqueSales Map - same as above) ...
+                    originalSalesList = Array.from(uniqueSales.values()); // Update the list used for mapping
+
+                    fullTransactionData = await getFinancialDetails(true); // Force refresh
+                    displaySummary(fullTransactionData, originalSalesList); // Re-display summary, passing the UPDATED mapping list
+                 } catch (error) {
+                     // ... (handle refresh error) ...
+                 } finally {
+                     // ... (re-enable button) ...
+                 }
+             });
+        }
+    }
+} // End of initializeFinancialsSection
+
+// --- Modify CSV Generation to accept and use the mapping list ---
+// *** MODIFIED Signature ***
+function generateAndDownloadCsv(transactions, saleIdToCourseIdMap) {
+    if (!transactions || transactions.length === 0) { /* ... alert ... */ return; }
+    if (!saleIdToCourseIdMap) { console.error("CSV Error: Missing sale ID to Course ID map."); alert("Error generating CSV: Data mapping missing."); return; }
+
+    console.log("FINANCIALS: Generating CSV...");
+    const csvData = [];
+    csvData.push([ /* ... Headers ... */ ]);
+    const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
+
+    transactions.forEach(saleDetail => {
+        const saleAttributes = saleDetail?.data?.attributes;
+        const saleId = saleDetail?.data?.id;
+        // *** Look up CourseID from map ***
+        const originalSaleInfo = saleIdToCourseIdMap.find(s => String(s.saleId) === String(saleId));
+        const saleCourseId = originalSaleInfo ? originalSaleInfo.courseId : null;
+        // *** Get Course Name from looked-up CourseID ***
+        const course = courses.find(c => String(c.courseId) === String(saleCourseId));
+        const courseName = course ? course.name.replace(/"/g, '""') : `Course ID ${saleCourseId}`;
+        // ... (extract saleTime, saleTotal, etc. as before) ...
+
+        if (saleDetail.included && Array.isArray(saleDetail.included)) {
+            saleDetail.included.forEach(item => {
+                // ... (extract item details) ...
+                // *** Use the looked-up courseName ***
+                csvData.push([ /* ..., courseName, ... */ ]);
+            });
+        }
+    });
+    const csvString = csvData.map(row => row.join(",")).join("\n");
+    downloadCSV(csvString);
 }
 
 
