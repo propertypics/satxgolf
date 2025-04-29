@@ -89,6 +89,9 @@ async function handleRequest(request) {
       // Handles Step 2 of booking (finalizing with pending ID)
       return await handleCompleteReservationRequest(request);
     }
+    if (path === "/api/sale-details") {
+      return await handleSaleDetailsRequest(request);
+  }
     if (path === "/health" || path === "/") {
       return jsonResponse({ status: "ok", message: "ForeUp API Proxy is running", version: "1.0.6", debug: DEBUG });
     }
@@ -364,6 +367,90 @@ async function handleCompleteReservationRequest(request) {
     return errorResponse(`Failed to complete reservation: ${error.message}`);
   }
 }
+
+async function handleSaleDetailsRequest(request) {
+  // 1. Check Method
+  if (request.method !== "POST") return errorResponse("Method Not Allowed", 405);
+
+  try {
+    // 2. Parse Incoming JSON Body { sales: [{saleId, courseId}, ...] }
+    let requestData;
+    try {
+        requestData = await request.json();
+        debug("Worker: Received sale details request payload:", requestData);
+    } catch (error) {
+        return errorResponse("Invalid JSON request body", 400);
+    }
+    if (!requestData || !Array.isArray(requestData.sales)) {
+      return errorResponse("Invalid request body: Expected { sales: [...] }", 400);
+    }
+
+    // 3. Authenticate User
+    const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const cookies = request.headers.get("X-ForeUp-Cookies");
+    if (!jwt) return errorResponse("Authentication required", 401);
+
+    const detailedSales = [];
+    const salesToFetch = requestData.sales;
+    debug(`Worker: Attempting to fetch details for ${salesToFetch.length} sales.`);
+
+    // 4. Iterate and Fetch from ForeUp
+    await Promise.all(salesToFetch.map(async (saleInfo) => {
+      if (!saleInfo.saleId || !saleInfo.courseId) {
+         console.warn("Worker: Skipping sale detail fetch due to missing ID:", saleInfo);
+         return;
+      }
+
+      const saleDetailUrl = `https://foreupsoftware.com/api_rest/courses/${saleInfo.courseId}/customers/cart/${saleInfo.saleId}/getCompletedSale?include=items`;
+
+      // **** START: Construct Headers for ForeUp Request ****
+      // VERIFY these headers against your working curl command
+      const headers = {
+          'accept': 'application/json, text/javascript, */*; q=0.01',
+          'accept-language': 'en-US,en;q=0.9', // Optional but good practice
+          'api-key': 'no_limits',
+          'Cookie': cookies || '', // Pass cookies from frontend
+          'dnt': '1', // Optional
+          'priority': 'u=1, i', // Optional
+          'Referer': `https://foreupsoftware.com/index.php/booking/${saleInfo.courseId}/`, // Specific referer
+          'sec-fetch-dest': 'empty', // Optional
+          'sec-fetch-mode': 'cors', // Optional
+          'sec-fetch-site': 'same-origin', // Optional
+          'user-agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)', // Identify your worker
+          'x-authorization': `Bearer ${jwt}`, // CRUCIAL
+          'x-fu-golfer-location': 'foreup',
+          'x-requested-with': 'XMLHttpRequest'
+      };
+      // **** END: Construct Headers for ForeUp Request ****
+
+      try {
+        debug(`Worker: Fetching ${saleDetailUrl}`);
+        const response = await fetch(saleDetailUrl, { headers: headers }); // GET is default
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Worker: Failed ForeUp fetch for sale ${saleInfo.saleId}. Status: ${response.status}. Response: ${errorText.substring(0, 500)}`);
+          return; // Skip this sale on error
+        }
+        const saleData = await response.json();
+        detailedSales.push(saleData);
+      } catch (fetchError) {
+        console.error(`Worker: Network/parsing error fetching sale detail ${saleInfo.saleId}:`, fetchError);
+      }
+    })); // End Promise.all
+
+    debug(`Worker: Successfully fetched details for ${detailedSales.length} out of ${salesToFetch.length} requested sales.`);
+    // 5. Return aggregated results
+    return jsonResponse(detailedSales);
+
+  } catch (error) {
+    // Catch errors in overall handling
+    debug(`Worker: Error handling sale details request: ${error.message}`, { stack: error.stack });
+    return errorResponse(`Failed to fetch sale details: ${error.message}`);
+  }
+}
+
+
 
 // Register the event listener for Cloudflare Workers
 addEventListener("fetch", event => {

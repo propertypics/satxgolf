@@ -65,6 +65,27 @@
                 <h3>Recent Activity</h3>
                 <div id="recentActivity"></div>
             </div>
+            <!-- Add this card inside the <div id="statsContainer"> -->
+
+	    <div class="stats-card">   
+    	         <h3>Financial Summary</h3>           <!-- Title for the section -->
+    	         <div id="financialSummary">
+        <p>Loading financial summary...</p> <!-- Initial loading message -->
+    </div>
+
+    <!-- Export button, initially hidden, shown after data loads -->
+    <button id="exportCsvBtn" class="secondary-btn" style="display: none; margin-top: 15px;">
+        Export Full History (CSV)
+    </button>
+
+    <!-- Optional: Refresh button -->
+    <button id="refreshFinancialsBtn" class="secondary-btn" style="margin-top: 15px; margin-left: 10px;">
+        Refresh Financials
+    </button>
+
+</div>
+
+<!-- End of Financial Summary Card -->
         </div>
         
         <div class="no-data" id="noDataMessage" style="display: none;">
@@ -75,12 +96,13 @@
     
     <footer>
         <div class="container">
-            <p>© 2025 SATX Golf - Alamo City Golf Trail</p>
+            <p>© 2025 SATX Golf </p>
         </div>
     </footer>
     
     <div class="version-tag">v1.0.7</div>
     
     <script src="mystats.js"></script>
+    <script src="financials.js"></script>
 </body>
 </html>

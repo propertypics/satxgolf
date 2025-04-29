@@ -810,6 +810,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof initializeStatsPage === 'function') {
             initializeStatsPage();
         } else { console.error('initializeStatsPage function missing'); }
+      // **** ADD CALL TO INITIALIZE FINANCIALS ****
+        if (typeof initializeFinancialsSection === 'function') {
+             initializeFinancialsSection(); // Call the function from financials.js
+        } else {
+             console.error('initializeFinancialsSection function missing! Financials will not load.');
+             const fsDiv = document.getElementById('financialSummary');
+             if(fsDiv) fsDiv.innerHTML = '<p style="color:red;">Error: Financials script missing.</p>';
+        }
 
     } else {
         // --- Fallback for Unknown Pages ---
