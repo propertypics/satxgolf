@@ -215,54 +215,118 @@ async function initializeFinancialsSection() {
 
     // --- Internal helper to display summary ---
     // *** MODIFIED to accept originalSalesList ***
+
+/ --- Internal helper function to display summary ---
+    // *** Takes transactionDetails (results) and saleIdToCourseIdMap (original list) ***
     function displaySummary(transactionDetails, saleIdToCourseIdMap) {
-        if (!financialSummaryDiv) return;
+        // Use shared getElement from utils.js if available, otherwise fallback
+        const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
+        const financialSummaryDiv = getElementFunc('financialSummary'); // Get div reference inside function
+        const exportCsvBtn = getElementFunc('exportCsvBtn', '', false); // Get button reference inside function
+
+        if (!financialSummaryDiv) {
+            console.error("FINANCIALS Display: Cannot find financialSummaryDiv to update.");
+            return; // Exit if display area not found
+        }
 
         if (!transactionDetails || transactionDetails.length === 0) {
              financialSummaryDiv.innerHTML = '<h3>Spending This Year</h3><p>No financial data found.</p>';
              if (exportCsvBtn) exportCsvBtn.style.display = 'none';
              return;
         }
+        // Ensure the map is valid
+        if (!saleIdToCourseIdMap || !Array.isArray(saleIdToCourseIdMap)) {
+             console.error("FINANCIALS Display: Invalid or missing saleIdToCourseIdMap.");
+             financialSummaryDiv.innerHTML = '<h3>Spending This Year</h3><p style="color:red;">Error: Cannot map sales to courses.</p>';
+             if (exportCsvBtn) exportCsvBtn.style.display = 'none';
+             return;
+        }
+
 
         const currentYear = new Date().getFullYear();
         const spendingByCourse = {};
+        // Use shared course data source
         const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
+        if (courses.length === 0) console.warn("FINANCIALS Display: Course list is empty.");
 
-        transactionDetails.forEach(saleDetail => {
+
+        console.log("FINANCIALS Display: Starting summary calculation. Input transaction count:", transactionDetails?.length);
+        console.log("FINANCIALS Display: Using saleId->courseId map:", saleIdToCourseIdMap);
+
+        // Iterate through the DETAILED transaction data returned by the worker
+        transactionDetails.forEach((saleDetail, index) => {
              const saleAttributes = saleDetail?.data?.attributes;
              const saleId = saleDetail?.data?.id; // Get ID from the fetched detail
-             const saleTime = saleAttributes?.saleTime;
-             const saleTotal = parseFloat(saleAttributes?.total || 0);
 
-             // *** Look up the courseId using the saleId from the original list ***
+             // ---vvv--- DETAILED LOGGING ---vvv---
+             console.log(`\n--- Processing Sale Detail #${index + 1} ---`);
+             // console.log("Raw saleDetail:", saleDetail); // Optional: Log the whole object if needed, can be very verbose
+             console.log("Extracted saleId:", saleId, `(Type: ${typeof saleId})`);
+
+             // Look up the courseId using the saleId from the original mapping list
              const originalSaleInfo = saleIdToCourseIdMap.find(s => String(s.saleId) === String(saleId));
+             console.log("Lookup result in originalSalesList:", originalSaleInfo);
              const saleCourseId = originalSaleInfo ? originalSaleInfo.courseId : null;
-             // *** End lookup ***
+             console.log("Derived saleCourseId:", saleCourseId, `(Type: ${typeof saleCourseId})`);
 
-             console.log(`FINANCIALS Display: Processing SaleID: ${saleId}, Found CourseID: ${saleCourseId}, Time: ${saleTime}, Total: ${saleTotal}`); // Add log
+             // Extract time and total
+             const saleTime = saleAttributes?.saleTime;
+             const saleTotalRaw = saleAttributes?.total;
+             const saleTotal = parseFloat(saleTotalRaw || 'NaN'); // Force NaN if missing/null
+             console.log("Extracted saleTime:", saleTime, `(Type: ${typeof saleTime})`);
+             console.log("Extracted saleTotalRaw:", saleTotalRaw, `(Type: ${typeof saleTotalRaw})`);
+             console.log("Parsed saleTotal:", saleTotal, `(Is NaN: ${isNaN(saleTotal)})`);
 
-             if (saleTime && saleCourseId && !isNaN(saleTotal)) {
-                 if (new Date(saleTime).getFullYear() === currentYear) {
-                      // Map courseId to name
-                      const course = courses.find(c => String(c.courseId) === String(saleCourseId));
-                      const courseName = course ? course.name : `Course ID ${saleCourseId}`;
-                      spendingByCourse[courseName] = (spendingByCourse[courseName] || 0) + saleTotal;
+             // Check components before the IF
+             const isSaleTimeValid = !!saleTime; // Check if saleTime is truthy
+             const isCourseIdValid = !!saleCourseId; // Check if saleCourseId was found
+             const isTotalValid = !isNaN(saleTotal); // Check if parsing to float worked
+             console.log(`Check components: saleTime=${isSaleTimeValid}, saleCourseId=${isCourseIdValid}, !isNaN(saleTotal)=${isTotalValid}`);
+             // ---^^^--- END DETAILED LOGGING ---^^^---
+
+
+             // Check if all necessary components are valid
+             if (isSaleTimeValid && isCourseIdValid && isTotalValid) {
+                 try { // Add try-catch around date parsing
+                     const saleYear = new Date(saleTime).getFullYear();
+                     if (saleYear === currentYear) {
+                          // Map courseId to name
+                          const course = courses.find(c => String(c.courseId) === String(saleCourseId));
+                          const courseName = course ? course.name : `Course ID ${saleCourseId}`;
+                          // Aggregate spending
+                          spendingByCourse[courseName] = (spendingByCourse[courseName] || 0) + saleTotal;
+                     }
+                 } catch (dateError) {
+                      console.error(`FINANCIALS Display: Error parsing saleTime '${saleTime}' for saleId ${saleId}:`, dateError);
+                      console.warn("FINANCIALS Display: Skipping sale for summary due to invalid date:", {saleId, saleTime, saleCourseId, saleTotal});
                  }
              } else {
-                 console.warn("FINANCIALS Display: Skipping sale for summary due to missing data:", {saleId, saleTime, saleCourseId, saleTotal});
+                 // Log why it's being skipped
+                 console.warn("FINANCIALS Display: Skipping sale for summary due to missing/invalid data:", {saleId, saleTime, saleCourseId, saleTotal});
              }
-        });
+        }); // End forEach
 
-        // Generate HTML (same as before)
-        const summaryListHtml = Object.entries(spendingByCourse) /* ... sort ... */ .map(/* ... generate li ... */).join('');
+        // --- Generate HTML for the summary list ---
+        console.log("FINANCIALS Display: Final spendingByCourse:", spendingByCourse);
+        const summaryListHtml = Object.entries(spendingByCourse)
+            .sort(([nameA], [nameB]) => nameA.localeCompare(nameB)) // Sort courses alphabetically
+            .map(([name, total]) => `<li><span class="course-name">${name}</span><span class="amount">$${total.toFixed(2)}</span></li>`)
+            .join('');
+
+        // Update the UI
         financialSummaryDiv.innerHTML = `<h3>Spending This Year</h3><ul class="financial-list">${summaryListHtml}${Object.keys(spendingByCourse).length === 0 ? '<li>No spending recorded this year.</li>' : ''}</ul>`;
+        console.log("FINANCIALS Display: Updated financialSummaryDiv innerHTML.");
 
-        // Show export button
-        if (exportCsvBtn && transactionDetails.length > 0) exportCsvBtn.style.display = 'inline-block';
-        else if (exportCsvBtn) exportCsvBtn.style.display = 'none';
+        // Show/hide export button
+        if (exportCsvBtn && transactionDetails.length > 0 && Object.keys(spendingByCourse).length > 0) { // Also check if summary has entries
+             exportCsvBtn.style.display = 'inline-block';
+             console.log("FINANCIALS Display: Showing export button.");
+        } else if (exportCsvBtn) {
+             exportCsvBtn.style.display = 'none';
+             console.log("FINANCIALS Display: Hiding export button.");
+        }
 
-    } // End displaySummary helper
-
+    } // --- End displaySummary helper function ---
 
     // --- Add Listener for Export Button ---
      if (exportCsvBtn) {
