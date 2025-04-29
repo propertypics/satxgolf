@@ -17,6 +17,7 @@ function getElement(id, errorMessage, isCritical = true) {
 }
 
 // --- Get DOM Elements ---
+const loginHeaderBtn = getElement('loginHeaderBtn', 'Login button in header not found', false);
 const courseGrid = getElement('courseGrid', 'Course grid element not found. Course display will fail.', false);
 const loadingIndicator = getElement('loadingIndicator', 'Loading indicator not found', false);
 const loginModal = getElement('loginModal', 'Login modal overlay not found');
@@ -122,16 +123,27 @@ function showCallConfirmModal() { showModal(callConfirmModal); }
 function checkLogin() {
     const token = localStorage.getItem('jwt_token');
     const storedName = localStorage.getItem('user_name');
-    if (token) {
-        if (storedName && userName) userName.textContent = storedName;
-        if (userInfo) userInfo.style.display = 'flex';
-        if (statsLink) statsLink.style.display = 'block';
+    const localUserInfo = document.getElementById('userInfo');
+    const localUserName = document.getElementById('userName');
+    const localStatsLink = document.getElementById('statsLink');
+    const localLoginHeaderBtn = document.getElementById('loginHeaderBtn');
+
+    if (token) { // User IS logged in
+        if (storedName && localUserName) localUserName.textContent = storedName;
+        if (localUserInfo) localUserInfo.style.display = 'flex';
+        if (localStatsLink) localStatsLink.style.display = 'inline';
+        if (localLoginHeaderBtn) localLoginHeaderBtn.style.display = 'none';
         return true;
+    } else { // User IS NOT logged in
+        if (localUserInfo) localUserInfo.style.display = 'none';
+        if (localStatsLink) localStatsLink.style.display = 'none';
+        if (localLoginHeaderBtn) localLoginHeaderBtn.style.display = 'inline';
+        return false;
     }
-    if (userInfo) userInfo.style.display = 'none';
-    if (statsLink) statsLink.style.display = 'none';
-    return false;
 }
+
+
+
 
 function loginUser(username, password) {
     console.log("DEBUG: Entered loginUser function."); // Existing log - GOOD
@@ -684,94 +696,127 @@ function makePhoneCall() { const phoneNumber = '12102127572'; window.location.hr
 
 
 // --- Initialization and Event Listeners ---
+// --- Initialization and Event Listeners ---
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM content loaded, initializing page...');
+    // **** 1. Call checkLogin FIRST to set initial button states ****
     checkLogin();
 
-    // Login Modal Listeners
-    if (loginForm) {
-    console.log("DEBUG: Attaching submit listener to loginForm"); // Add log
-    loginForm.addEventListener('submit', function(e) {
-        e.preventDefault(); // Prevent default form submission
-        console.log("DEBUG: loginForm submitted!"); // Add log
+    // **** 2. ADD Listener for Header Login Button ****
+    const loginHeaderBtn = getElement('loginHeaderBtn', 'Login button in header not found', false); // Get reference
+    if (loginHeaderBtn) {
+        console.log("DEBUG: Attaching click listener to loginHeaderBtn");
+        loginHeaderBtn.addEventListener('click', () => {
+            console.log("DEBUG: Header Login Button Clicked!");
+            selectedCourse = null; // Ensure login doesn't auto-proceed to tee times
+            showLoginModal(); // Show the modal
+        });
+         console.log("DEBUG: Click listener ATTACHED to loginHeaderBtn.");
+    } else {
+         console.warn("DEBUG: loginHeaderBtn not found (may be expected on stats page).");
+    }
 
-        // Get element references INSIDE the handler to be safe
-        const usernameInput = document.getElementById('username'); // Use basic getElementById here
-        const passwordInput = document.getElementById('password');
-
-        if (usernameInput && passwordInput && usernameInput.value && passwordInput.value) {
-            console.log("DEBUG: Calling loginUser..."); // Add log
-            loginUser(usernameInput.value, passwordInput.value);
-        } else {
-            // Log the state of inputs if validation fails
-            console.error("DEBUG: Username or Password field validation failed.");
-            console.log("DEBUG: usernameInput found:", !!usernameInput, "value:", usernameInput?.value);
-            console.log("DEBUG: passwordInput found:", !!passwordInput, "value:", passwordInput?.value ? '******' : ''); // Don't log password value
-            // Optionally show message to user
-             if(typeof showMessage === 'function') { // Ensure showMessage exists
-                showMessage('Please enter both Email/Username and Password.', 'error');
-             } else {
-                alert('Please enter both Email/Username and Password.'); // Fallback alert
-             }
-        }
-    });
-    console.log("DEBUG: Submit listener ATTACHED to loginForm."); // Add log
-} else {
-    console.error("DEBUG: loginForm element not found, cannot attach listener.");
-}
-
-
-
-
-    if (closeLoginModal) closeLoginModal.addEventListener('click', hideLoginModal);
-    if (loginModal) loginModal.addEventListener('click', (e) => { if (e.target === loginModal) hideLoginModal(); });
-
-    // Logout Listener
-    if (logoutBtn) { logoutBtn.addEventListener('click', function() { /* ... clear local storage, redirect/reload ... */ }); }
-
-    // Tee Time Modal Listeners
-    if (closeTeeTimeModal) closeTeeTimeModal.addEventListener('click', hideTeeTimeModal);
-    if (teeTimeModal) teeTimeModal.addEventListener('click', (e) => { if (e.target === teeTimeModal) hideTeeTimeModal(); });
-    if (backToCalendar) { backToCalendar.addEventListener('click', function() { if (dateSelectionView) dateSelectionView.style.display = 'block'; if (teeTimeSlotsView) teeTimeSlotsView.style.display = 'none'; }); }
-
-    // Booking Modal Listeners
-    if (closeBookingModal) closeBookingModal.addEventListener('click', hideBookingModal);
-    if (cancelBookingBtn) cancelBookingBtn.addEventListener('click', hideBookingModal);
-    if (bookingModal) bookingModal.addEventListener('click', (e) => { if (e.target === bookingModal) hideBookingModal(); });
-
-    // *** BOOKING BUTTON LISTENER (Triggers Step 1) ***
-    if (bookNowBtn) {
-        console.log('DEBUG: Attaching click listener to bookNowBtn');
-        bookNowBtn.addEventListener('click', function() {
-            console.log('DEBUG: bookNowBtn CLICKED!');
-            bookNowBtn.disabled = true; bookNowBtn.classList.add('loading'); bookNowBtn.textContent = 'Booking...';
-            console.log('DEBUG: Button disabled and loading state set.');
-            try {
-                 initiatePendingReservation(); // Call Step 1
-            } catch (error) {
-                 console.error("FATAL ERROR inside bookNowBtn click handler:", error);
-                 showBookingError(`An unexpected error occurred: ${error.message}. Please try again.`);
-                 resetBookNowButton();
+    // **** 3. MODIFY Logout Listener ****
+    const logoutBtn = getElement('logoutBtn', 'Logout button not found', false); // Get reference
+    if (logoutBtn) {
+         logoutBtn.addEventListener('click', function() {
+            console.log('Logout clicked');
+            // Clear local storage
+            localStorage.removeItem('jwt_token'); localStorage.removeItem('user_name');
+            localStorage.removeItem('foreup_cookies'); localStorage.removeItem('login_data');
+            localStorage.removeItem('user_bookings');
+            // Update UI immediately using checkLogin
+            checkLogin();
+            // Redirect logic (UPDATED for index.html)
+            if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
+                 window.location.href = 'index.html'; // Go back to index.html if not already there
             }
         });
-        console.log('DEBUG: Click listener ATTACHED to bookNowBtn.');
-    } else { console.error('DEBUG: bookNowBtn not found, listener could not be attached.'); }
+    }
 
-    // Call Modal Listeners (If using call functionality)
-    if (closeCallConfirmModal) closeCallConfirmModal.addEventListener('click', hideCallConfirmModal);
-    if (callConfirmModal) callConfirmModal.addEventListener('click', (e) => { if (e.target === callConfirmModal) hideCallConfirmModal(); });
-    // Ensure correct IDs or query selectors for these if they are distinct buttons
-    const cancelCallBtnBooking = getElement('cancelCallBtn', 'Cancel call button (booking) not found', false);
-    const makeCallBtnBooking = getElement('makeCallBtn', 'Make call button (booking) not found', false);
-    if(cancelCallBtnBooking) cancelCallBtnBooking.addEventListener('click', hideBookingModal); // Example action
-    if(makeCallBtnBooking) makeCallBtnBooking.addEventListener('click', makePhoneCall); // Example action
+    // **** 4. Keep Page-Specific Logic Structure ****
+    if (document.getElementById('courseGrid')) {
+        // --- Code specific to index.html ---
+        console.log('Initializing Course Page (index.html)...');
 
-    // Page-Specific Initialization
-    if (document.getElementById('courseGrid')) { console.log('Initializing Course Page...'); loadCourses(); }
-    else if (document.getElementById('statsContainer')) { console.log('Initializing Stats Page...'); if (typeof initializeStatsPage === 'function') initializeStatsPage(); else console.error('initializeStatsPage function missing'); }
-    else { console.warn('Unknown page type - no course grid or stats container found.'); }
+        // Get elements needed for this page (can re-get safely or trust globals if careful)
+        const loginModal = getElement('loginModal');
+        const closeLoginModal = getElement('closeLoginModal');
+        const loginForm = getElement('loginForm');
+        const bookNowBtn = getElement('bookNowBtn');
+        const cancelBookingBtn = getElement('cancelBookingBtn');
+        const bookingModal = getElement('bookingModal');
+        const closeTeeTimeModal = getElement('closeTeeTimeModal');
+        const teeTimeModal = getElement('teeTimeModal');
+        const backToCalendar = getElement('backToCalendar');
+        // ... get other needed elements ...
 
-    // API Health Check
+        // Login Modal Listeners (Index Page Specific)
+        if (loginForm) {
+            console.log("DEBUG: Attaching submit listener to loginForm (Course Page)");
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const usernameInput = document.getElementById('username');
+                const passwordInput = document.getElementById('password');
+                if (usernameInput && passwordInput && usernameInput.value && passwordInput.value) {
+                    loginUser(usernameInput.value, passwordInput.value);
+                } else {
+                     if(typeof showMessage === 'function') { showMessage('Please enter both Email/Username and Password.', 'error'); }
+                     else { alert('Please enter both Email/Username and Password.'); }
+                }
+            });
+            console.log("DEBUG: Submit listener ATTACHED to loginForm (Course Page).");
+        } else { console.error("DEBUG: loginForm element not found on Course Page!"); }
+
+        if (closeLoginModal) closeLoginModal.addEventListener('click', () => hideModal(loginModal));
+        if (loginModal) loginModal.addEventListener('click', (e) => { if (e.target === loginModal) hideModal(loginModal); });
+
+        // Tee Time Modal Listeners (Index Page Specific)
+        if (closeTeeTimeModal) closeTeeTimeModal.addEventListener('click', hideTeeTimeModal);
+        if (teeTimeModal) teeTimeModal.addEventListener('click', (e) => { if (e.target === teeTimeModal) hideTeeTimeModal(); });
+        if (backToCalendar) { backToCalendar.addEventListener('click', function() { /* ... back to calendar logic ... */ }); }
+
+
+        // Booking Modal Listeners (Index Page Specific)
+        if (closeBookingModal) closeBookingModal.addEventListener('click', hideBookingModal);
+        if (cancelBookingBtn) cancelBookingBtn.addEventListener('click', hideBookingModal);
+        if (bookingModal) bookingModal.addEventListener('click', (e) => { if (e.target === bookingModal) hideBookingModal(); });
+
+
+        // Booking Button Listener (Index Page Specific)
+        if (bookNowBtn) {
+            console.log('DEBUG: Attaching click listener to bookNowBtn (Course Page)');
+            bookNowBtn.addEventListener('click', function() { /* ... booking logic ... */ initiatePendingReservation(); });
+            console.log('DEBUG: Click listener ATTACHED to bookNowBtn (Course Page).');
+        } else { console.error('DEBUG: bookNowBtn not found on Course page!'); }
+
+        // Call Modal Listeners (Index Page Specific - if using Call feature)
+        const closeCallConfirmModal = getElement('closeCallConfirmModal', '', false);
+        const callConfirmModal = getElement('callConfirmModal', '', false);
+        const cancelCallBtnBooking = getElement('cancelCallBtn', '', false);
+        const makeCallBtnBooking = getElement('makeCallBtn', '', false);
+        if (closeCallConfirmModal) closeCallConfirmModal.addEventListener('click', hideCallConfirmModal);
+        if (callConfirmModal) callConfirmModal.addEventListener('click', (e) => { if (e.target === callConfirmModal) hideCallConfirmModal(); });
+        if(cancelCallBtnBooking) cancelCallBtnBooking.addEventListener('click', hideBookingModal);
+        if(makeCallBtnBooking) makeCallBtnBooking.addEventListener('click', makePhoneCall);
+
+        // Load Courses (Index Page Specific)
+        loadCourses();
+
+    } else if (document.getElementById('statsContainer')) {
+        // --- Code specific to mystats.html ---
+        console.log('Initializing Stats Page (mystats.html)...');
+        // Stats page specific listeners (if any) would go here
+        if (typeof initializeStatsPage === 'function') {
+            initializeStatsPage();
+        } else { console.error('initializeStatsPage function missing'); }
+
+    } else {
+        // --- Fallback for Unknown Pages ---
+        console.warn('Unknown page type - no course grid or stats container found.');
+    }
+
+   // API Health Check (Common - runs on all pages)
     console.log('Performing API health check...');
     fetch(`${API_BASE_URL}/health`)
         .then(response => response.ok ? response.json() : { status: 'error', message: `Health check failed with status ${response.status}` })
@@ -780,5 +825,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('Page initialization complete.');
 });
-
-// --- END OF FILE scripts.js ---
