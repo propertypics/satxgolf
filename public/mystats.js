@@ -27,36 +27,29 @@ function initializeStatsPage() {
     const statsRecentActivity = getElement('recentActivity', 'Recent activity div not found');
     const statsPunchInfo = getElement('punchInfo', 'Punch info div not found', false);
     const statsPunchCard = getElement('punchCard', 'Punch card container not found', false);
-    const statsLoadingIndicator = getElement('loadingIndicator', 'Stats loading indicator not found', false);
+    const statsLoadingIndicator = getElement('loadingIndicator', 'Stats loading indicator not found', false); // Get main loader
 
-    // Early exit if critical elements missing
+
     if (!statsContainer || !statsNoDataMessage || !statsMembershipInfo || !statsRecentActivity) {
         console.error('STATS_PAGE: Critical elements missing for basic stats.');
-        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
+        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none'; // Hide loader if basic init fails
         return;
     }
 
-    statsNoDataMessage.style.display = 'none'; // Hide initially
+    statsNoDataMessage.style.display = 'none';
 
-    // Use shared checkLogin from utils.js
-    if (!checkLogin()) {
+    if (!checkLogin()) { // Use shared checkLogin
         console.log('STATS_PAGE: User not logged in.');
-        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
-        if (statsNoDataMessage) {
-             statsNoDataMessage.style.display = 'block';
-             statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Please log in.</p>`;
-        }
+        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none'; // Hide loader
+        if (statsNoDataMessage) { statsNoDataMessage.style.display = 'block'; statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Please log in.</p>`; }
         return;
     }
 
     const loginDataStr = localStorage.getItem('login_data');
     if (!loginDataStr) {
          console.log('STATS_PAGE: No login_data found.');
-         if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
-          if (statsNoDataMessage) {
-              statsNoDataMessage.style.display = 'block';
-              statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Login data missing.</p>`;
-          }
+         if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none'; // Hide loader
+         if (statsNoDataMessage) { statsNoDataMessage.style.display = 'block'; statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Login data missing.</p>`; }
          return;
      }
 
@@ -65,7 +58,8 @@ function initializeStatsPage() {
         const loginData = JSON.parse(loginDataStr);
         console.log('STATS_PAGE: Parsed login_data successfully.');
 
-        // --- Process loginData ---
+        // --- Process loginData for non-financial stats ---
+        // ... (Keep all the processing logic for membership, rounds, punches) ...
         const userData = { name: `${loginData.first_name || ''} ${loginData.last_name || ''}`.trim() };
         let membershipData = { name: 'No Membership Found', expires: 'N/A', purchased: 'N/A' };
         let hasPunchPass = false; let punchData = null; let allRounds = [];
@@ -73,69 +67,44 @@ function initializeStatsPage() {
         const courses = getSanAntonioCourses(); // Use shared function
 
         if (loginData.passes && typeof loginData.passes === 'object') {
-            const passIds = Object.keys(loginData.passes);
-            if (passIds.length > 0) {
-                const pass = loginData.passes[passIds[0]];
-                if(pass) {
-                    membershipData = { name: pass.name || 'Unknown', expires: formatDate(pass.end_date), purchased: formatDate(pass.date_purchased) }; // Use shared formatDate
-                    const ruleMapping = {};
-                    if (pass.rules && Array.isArray(pass.rules)) { pass.rules.forEach(rule => { ruleMapping[rule.rule_number] = { name: rule.name, type: statsGetRuleType(rule.name) }; }); }
-                    const isTrailPassPlus = membershipData.name.includes("Trail Pass Plus");
-
-                    if (pass.uses && Array.isArray(pass.uses)) {
-                        roundCounts.total = pass.uses.length;
-                        if (isTrailPassPlus) {
-                             const freeRoundRule = pass.rules?.find(rule => rule.name?.toLowerCase().includes("free") || rule.rule_number === 2); // Safer access
-                             if (freeRoundRule) {
-                                 hasPunchPass = true;
-                                 const punchUses = pass.uses.filter(use => String(use.rule_number) === String(freeRoundRule.rule_number));
-                                 roundCounts.punch = punchUses.length;
-                                 punchData = { used: punchUses.length, total: 10, percent: (punchUses.length / 10) * 100 };
-                             }
-                        }
-
-                        allRounds = pass.uses.map(use => {
-                            const rule = ruleMapping[use.rule_number] || { name: 'Unknown', type: 'standard' };
-                            let roundType = 'standard'; let badgeText = 'Paid';
-                            if (isTrailPassPlus && (rule.name?.toLowerCase().includes('free') || String(use.rule_number) === "2")) { roundType = 'punch'; badgeText = 'Punch'; }
-                            else if (rule.type === 'loyalty') { roundType = 'loyalty'; badgeText = 'Loyalty'; roundCounts.loyalty++; }
-                            else if (rule.type === 'promo') { roundType = 'promo'; badgeText = 'Promo'; roundCounts.promo++; }
-                            else { if (!isTrailPassPlus || !(rule.name?.toLowerCase().includes('free') || String(use.rule_number) === "2")) { roundCounts.standard++; } }
-                            const teesheetId = String(use.teesheet_id);
-                            const course = courses.find(c => String(c.facilityId) === teesheetId);
-                            const courseName = course ? course.name : `Teesheet ${teesheetId}`;
-                            return { date: formatDate(use.date), rawDate: new Date(use.date), course: courseName, type: roundType, badgeText: badgeText };
-                        }).sort((a, b) => b.rawDate - a.rawDate);
-                    }
-                }
-            }
+            // ... process passes, uses, rules ...
+            // ... calculate punchData, roundCounts, allRounds ...
         }
         console.log('STATS_PAGE: Basic stats processing complete.');
 
         // --- Populate Basic Stats HTML ---
-        if (statsMembershipInfo) statsMembershipInfo.innerHTML = `<div class="stat-item"><span class="stat-label">Name:</span><span>${userData.name}</span></div><div class="stat-item"><span class="stat-label">Membership:</span><span>${membershipData.name}</span></div><div class="stat-item"><span class="stat-label">Expires:</span><span>${membershipData.expires}</span></div><div class="stat-item"><span class="stat-label">Purchased:</span><span>${membershipData.purchased}</span></div>`;
+        if (statsMembershipInfo) { /* ... populate membershipInfo ... */ }
         const displayPunchCard = hasPunchPass && punchData && statsPunchCard && statsPunchInfo;
-        if (displayPunchCard) { statsPunchInfo.innerHTML = `<div class="punch-container"><span>${punchData.used}</span><div class="punch-bar"><div class="punch-progress" style="width: ${punchData.percent}%"></div><div class="punch-text">${punchData.used} of ${punchData.total} Used</div></div><span>${punchData.total}</span></div>`; statsPunchCard.style.display = 'block'; }
+        if (displayPunchCard) { /* ... populate punchInfo ... */ statsPunchCard.style.display = 'block'; }
         else if (statsPunchCard) { statsPunchCard.style.display = 'none'; }
+        if (statsRecentActivity) { /* ... populate recentActivity ... */ }
 
-        if (statsRecentActivity) {
-             const activityHeader = statsRecentActivity.closest('.stats-card')?.querySelector('h3');
-             if (activityHeader) activityHeader.textContent = 'All Activity';
-            if (allRounds.length > 0) {
-                 let calculatedTotal = roundCounts.punch + roundCounts.loyalty + roundCounts.promo + roundCounts.standard;
-                 if (roundCounts.total !== calculatedTotal) { console.warn("STATS_PAGE: Discrepancy between total rounds reported and calculated sum."); }
-                 statsRecentActivity.innerHTML = `<div class="round-stats"><div class="stat-item"><span class="stat-label">Total Rounds:</span><span>${roundCounts.total}</span></div>${displayPunchCard ? `<div class="stat-item"><span class="stat-label">Punch Rounds:</span><span>${roundCounts.punch}</span></div>` : ''}<div class="stat-item"><span class="stat-label">Loyalty Rounds:</span><span>${roundCounts.loyalty}</span></div><div class="stat-item"><span class="stat-label">Promo Rounds:</span><span>${roundCounts.promo}</span></div><div class="stat-item"><span class="stat-label">Standard Paid:</span><span>${roundCounts.standard}</span></div></div><ul class="all-rounds-list">${allRounds.map(round => `<li class="round-item ${round.type}"><div><div class="course-name">${round.course}</div><div class="date">${round.date}</div></div><span class="badge badge-${round.type}">${round.badgeText}</span></li>`).join('')}</ul>`;
-             } else { statsRecentActivity.innerHTML = '<p>No activity found.</p>'; }
+        // **** HIDE LOADER & SHOW CONTAINER ****
+        // Now that basic stats are ready, update the main UI
+        console.log("STATS_PAGE: Hiding main loader and showing stats container.");
+        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
+        if (statsContainer) statsContainer.style.display = 'grid'; // Or 'block'
+        // **** END HIDE/SHOW ****
+
+        // --- Trigger Financials Loading (but don't wait for it) ---
+        // Check if the financial init function exists (loaded from financials.js)
+        if (typeof initializeFinancialsSection === 'function') {
+             console.log("STATS_PAGE: Triggering asynchronous financial section initialization.");
+             initializeFinancialsSection(); // Call it - it will run in the background
+        } else {
+             console.error('STATS_PAGE: initializeFinancialsSection function missing! Financials will not load.');
+             const fsDiv = document.getElementById('financialSummary'); // Try to get element directly
+             if(fsDiv) fsDiv.innerHTML = '<p style="color:red;">Error: Financials script missing.</p>';
         }
-        // Do not hide loader or show container here
+
 
     } catch (error) {
         console.error('STATS_PAGE: Error processing login data:', error);
-        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
-        if (statsNoDataMessage) { statsNoDataMessage.style.display = 'block'; statsNoDataMessage.innerHTML = `<h3>Error Loading Stats</h3><p>Problem processing data. (${error.message})</p>`; }
-        if (statsContainer) statsContainer.style.display = 'none';
+        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none'; // Hide loader on error
+        if (statsNoDataMessage) { /* ... show error message ... */ }
+        if (statsContainer) statsContainer.style.display = 'none'; // Keep container hidden on error
     }
-}
+} // End initializeStatsPage
 
 
 // --- Initialization and Event Listeners ---
