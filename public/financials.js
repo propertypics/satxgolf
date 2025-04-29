@@ -235,49 +235,66 @@ async function initializeFinancialsSection() {
     if (refreshFinancialsBtn) refreshFinancialsBtn.disabled = true;
 
 
+    // Inside initializeFinancialsSection try block
     try {
         // --- Regenerate the original saleId/courseId list ---
-        // Needed for mapping results back to courses
         const loginDataStr = localStorage.getItem('login_data');
         if (!loginDataStr) throw new Error("Login data missing for financials.");
         const loginData = JSON.parse(loginDataStr);
         const uniqueSales = new Map();
         const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
 
-        if (loginData.passes?.passes[Object.keys(loginData.passes)[0]]?.uses) { // Safer access
-             const uses = loginData.passes[Object.keys(loginData.passes)[0]].uses;
-             uses.forEach(use => {
-                const saleId = use.sale_id;
-                const teesheetId = use.teesheet_id;
-                if (saleId && teesheetId) {
-                    const matchingCourse = courses.find(course => String(course.facilityId) === String(teesheetId));
-                    const courseId = matchingCourse ? String(matchingCourse.courseId) : null;
-                    if (courseId) {
-                        const key = `${saleId}-${courseId}`;
-                        if (!uniqueSales.has(key)) { uniqueSales.set(key, { saleId: String(saleId), courseId: courseId }); }
-                    }
+        // Check if loginData.passes exists and is an object
+        if (loginData.passes && typeof loginData.passes === 'object') {
+            const passIds = Object.keys(loginData.passes);
+            if (passIds.length > 0) {
+                const firstPassId = passIds[0]; // Get the first pass ID (e.g., "3305787")
+                const pass = loginData.passes[firstPassId]; // Access the pass object using the ID
+
+                // Now check if the pass object and its 'uses' array exist
+                if (pass && pass.uses && Array.isArray(pass.uses)) {
+                    const uses = pass.uses; // Get the uses array
+                    console.log(`FINANCIALS: Found ${uses.length} uses in pass ${firstPassId}.`); // Add log
+                    uses.forEach(use => {
+                        const saleId = use.sale_id;
+                        const teesheetId = use.teesheet_id;
+                        if (saleId && teesheetId) {
+                            const matchingCourse = courses.find(course => String(course.facilityId) === String(teesheetId));
+                            const courseId = matchingCourse ? String(matchingCourse.courseId) : null;
+                            if (courseId) {
+                                const key = `${saleId}-${courseId}`;
+                                if (!uniqueSales.has(key)) { uniqueSales.set(key, { saleId: String(saleId), courseId: courseId }); }
+                            }
+                        }
+                    }); // End forEach
+                } else {
+                    console.log(`FINANCIALS: Pass ${firstPassId} found, but no valid 'uses' array inside.`);
                 }
-             });
+            } else {
+                 console.log("FINANCIALS: 'passes' object exists, but contains no pass IDs.");
+            }
+        } else {
+             console.log("FINANCIALS: No 'passes' object found in login_data.");
         }
+
         originalSalesList = Array.from(uniqueSales.values());
         console.log("FINANCIALS: Regenerated original sales list for mapping:", originalSalesList);
         // --- End Regenerate ---
-
-
+        
         // Get detailed data (cached or fetched)
         fullTransactionData = await getFinancialDetails();
 
         // Calculate and display summary, passing the original list for lookup
-        displaySummary(fullTransactionData, originalSalesList); // Pass the mapping list
+        displaySummary(fullTransactionData, originalSalesList);
 
     } catch (error) {
-        console.error("FINANCIALS: Error loading initial financial details:", error);
+        console.error("FINANCIALS: Error processing login data or fetching details:", error); // Modified error log
         if(financialSummaryDiv) financialSummaryDiv.innerHTML = `<p style="color: red;">Error loading financial summary: ${error.message}</p>`;
     } finally {
-        // Ensure UI is updated regardless of success/error
-        finalizeUI();
-        if (refreshFinancialsBtn) refreshFinancialsBtn.disabled = false; // Re-enable refresh button
+        finalizeUI(); // Ensure UI updates
+        if (refreshFinancialsBtn) refreshFinancialsBtn.disabled = false;
     }
+
 
 
     // --- Internal helper function to display summary ---
