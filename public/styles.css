@@ -88,20 +88,40 @@ header {
     font-weight: 500;
 }
 
-.logout-btn {
+
+/* Replace it or modify it to use the new class: */
+.header-action-btn { /* Use the new shared class */
     background: none;
-    border: 1px solid #4CAF50;
-    color: #4CAF50;
-    padding: 5px 10px;
+    border: 1px solid #4CAF50; /* Primary green color */
+    color: #4CAF50; /* Primary green color */
+    padding: 5px 12px; /* Adjust padding as needed */
     border-radius: 4px;
     cursor: pointer;
     font-weight: 500;
-    transition: all 0.3s;
+    font-size: 14px; /* Ensure consistent font size */
+    text-align: center;
+    transition: all 0.2s ease-in-out; /* Slightly faster transition */
+    margin-left: 10px; /* Add some space if needed next to links */
 }
 
-.logout-btn:hover {
-    background-color: #4CAF50;
+.header-action-btn:hover,
+.header-action-btn:focus { /* Add focus state for accessibility */
+    background-color: #4CAF50; /* Primary green color */
     color: white;
+    outline: none; /* Remove default focus outline if adding custom style */
+}
+
+/* Optional: Adjust spacing if needed */
+.nav-links {
+    display: flex;
+    align-items: center; /* Vertically align items in nav */
+    gap: 20px;
+}
+
+.user-info {
+    display: flex; /* Ensure display:flex is set when visible */
+    align-items: center;
+    gap: 15px;
 }
 
 /* Hero section */
@@ -858,4 +878,81 @@ footer {
 .round-item.loyalty .badge,
 .round-item.promo .badge {
     font-size: 11px;
+}
+
+
+/* Booking Form Styles */
+.booking-modal {
+    max-width: 450px;
+}
+
+.number-selector {
+    display: flex;
+    align-items: center;
+}
+
+.number-selector select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    background-color: #fff;
+}
+
+.option-selector {
+    display: flex;
+    gap: 20px;
+}
+
+.option-selector label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.booking-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 25px;
+}
+
+#callNoticeContainer {
+    text-align: center;
+    background-color: #fff8e1;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+/* Loading state for the book button */
+.book-btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.book-btn.loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-top: -10px;
+    margin-left: -10px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
 }
