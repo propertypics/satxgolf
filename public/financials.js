@@ -17,6 +17,138 @@ const FINANCIAL_CACHE_KEY = 'user_financial_details_cache';
  * @param {boolean} [forceRefresh=false] - If true, bypasses cache check.
  * @returns {Promise<Array>} A promise resolving with the array of detailed transaction objects.
  */
+
+// --- PASTE THIS ENTIRE FUNCTION INTO financials.js ---
+
+/**
+ * Fetches (or retrieves from cache) detailed financial transaction data.
+ * Uses login_data identifier for cache validation.
+ * @param {boolean} [forceRefresh=false] - If true, bypasses cache check.
+ * @returns {Promise<Array>} A promise resolving with the array of detailed transaction objects.
+ */
+async function getFinancialDetails(forceRefresh = false) {
+    console.log(`FINANCIALS: Getting financial details... Force refresh: ${forceRefresh}`);
+    // Use shared getElement from utils.js if available, otherwise fallback
+    const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
+    // Use shared course data source
+    const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
+
+    const cachedDataString = localStorage.getItem(FINANCIAL_CACHE_KEY);
+    const loginDataStr = localStorage.getItem('login_data');
+    let cachedData = null;
+
+    if (!loginDataStr) {
+        console.error("FINANCIALS: Login data not found.");
+        throw new Error("Login data not found. Cannot process financials.");
+    }
+
+    let currentLoginDataIdentifier = '';
+    let salesToFetch = []; // List of {saleId, courseId}
+
+    // --- Prepare sales list and identifier from current login_data ---
+    try {
+        const loginData = JSON.parse(loginDataStr);
+        let salesListString = '';
+        const uniqueSales = new Map();
+
+        if (loginData.passes && typeof loginData.passes === 'object') {
+            const passIds = Object.keys(loginData.passes);
+            if (passIds.length > 0) {
+                const pass = loginData.passes[passIds[0]];
+                if (pass && pass.uses && Array.isArray(pass.uses)) {
+                    pass.uses.forEach(use => {
+                        const saleId = use.sale_id;
+                        const teesheetId = use.teesheet_id; // Use teesheet_id for mapping
+                        if (saleId && teesheetId) {
+                            // Find courseId using the mapping function
+                            const matchingCourse = courses.find(course => String(course.facilityId) === String(teesheetId));
+                            const courseId = matchingCourse ? String(matchingCourse.courseId) : null;
+                            if (courseId) {
+                                const key = `${saleId}-${courseId}`;
+                                if (!uniqueSales.has(key)) {
+                                    uniqueSales.set(key, { saleId: String(saleId), courseId: courseId });
+                                    salesListString += `${key};`;
+                                }
+                            } else { /* console.warn(`FINANCIALS: Could not map teesheet_id: ${teesheetId}`); */ }
+                        }
+                    });
+                }
+            }
+        }
+        salesToFetch = Array.from(uniqueSales.values());
+        // Use shared simpleHash from utils.js
+        currentLoginDataIdentifier = typeof simpleHash === 'function' ? simpleHash(salesListString.split(';').sort().join(';')) : Date.now().toString();
+        console.log(`FINANCIALS: Current login_data identifier: ${currentLoginDataIdentifier}`);
+        console.log(`FINANCIALS: Unique Sales to fetch details for: ${salesToFetch.length}`);
+    } catch (e) {
+        console.error("FINANCIALS: Error processing login_data:", e);
+        throw new Error("Could not process login data.");
+    }
+    // --- End prepare ---
+
+    // --- Check Cache ---
+    if (cachedDataString && !forceRefresh) {
+        try {
+            cachedData = JSON.parse(cachedDataString);
+            if (cachedData?.loginDataIdentifier === currentLoginDataIdentifier) {
+                console.log("FINANCIALS: Using cached data.");
+                return cachedData.transactions; // Return valid cached data
+            } else { console.log(`FINANCIALS: Cache invalid.`); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
+        } catch (e) { console.error("FINANCIALS: Error parsing cache:", e); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
+    }
+    // --- End Check Cache ---
+
+    // --- Fetch Fresh Data ---
+    if (salesToFetch.length === 0) {
+         console.log("FINANCIALS: No sales found to fetch details for.");
+         const emptyCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: [] };
+         try { // Wrap cache setting in try-catch
+             localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(emptyCache));
+         } catch (cacheError) {
+              console.error("FINANCIALS: Error caching empty results:", cacheError);
+         }
+         return []; // Return empty array
+    }
+    console.log(`FINANCIALS: Fetching fresh details for ${salesToFetch.length} sales...`);
+    const token = localStorage.getItem('jwt_token'); const cookies = localStorage.getItem('foreup_cookies');
+    if (!token) throw new Error("Authentication required.");
+
+    // Use shared API_BASE_URL from utils.js
+    const workerApiUrl = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'https://missing-api-base-url.com') + '/api/sale-details';
+
+    try {
+        console.log(`FINANCIALS: Calling worker endpoint: ${workerApiUrl}`);
+        const response = await fetch(workerApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'X-ForeUp-Cookies': cookies || '' },
+            body: JSON.stringify({ sales: salesToFetch }) // Send { sales: [...] } structure
+        });
+        if (!response.ok) { const errorText = await response.text(); throw new Error(`Failed to fetch sale details: ${response.status} - ${errorText}`); }
+
+        const freshTransactions = await response.json();
+        // Basic validation of response structure
+        if (!Array.isArray(freshTransactions)) {
+             console.error("FINANCIALS: Worker response is not an array:", freshTransactions);
+             throw new Error("Received invalid data format from server.");
+        }
+        console.log(`FINANCIALS: Successfully fetched details for ${freshTransactions.length} sales.`);
+
+        // Cache the fresh data
+        const dataToCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: freshTransactions };
+        try { localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(dataToCache)); console.log("FINANCIALS: Data cached."); }
+        catch (e) { console.error("FINANCIALS: Error caching data:", e); } // Continue even if caching fails
+        return freshTransactions;
+
+    } catch (error) {
+        console.error("FINANCIALS: Error fetching sale details from worker:", error);
+        throw error; // Re-throw error to be handled by initializeFinancialsSection
+    }
+    // --- End Fetch Fresh Data ---
+} // --- END OF getFinancialDetails FUNCTION ---
+
+// --- Make sure other functions like generateAndDownloadCsv, downloadCSV, initializeFinancialsSection, clearFinancialCache are also present in financials.js ---
+
+
 // Main Function to Initialize Financials UI
 async function initializeFinancialsSection() {
     console.log("FINANCIALS: Initializing section (async)...");
