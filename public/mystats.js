@@ -1,121 +1,139 @@
 // --- START OF FILE mystats.js ---
 
-// Constants can be at top if needed, but avoid function calls like getElement
-// const MYSTATS_APP_VERSION = "1.0.11-stats"; // If needed specifically here
+// Relies on functions/constants from utils.js being loaded first
 
 console.log("mystats.js executing");
 
-// --- NO Top-Level getElement calls here ---
-// const statsUserInfo = getStatsElement(...); // REMOVE
-// const statsUserName = getStatsElement(...); // REMOVE
-// const statsLogoutBtn = getStatsElement(...); // REMOVE
-// etc...
-
-// --- Login/Auth Check ---
-// Modified to get elements inside
-function statsCheckLogin() { // Or just use global checkLogin from utils.js
-    const token = localStorage.getItem('jwt_token');
-    const storedName = localStorage.getItem('user_name');
-    // Get elements when function is called
-    const userInfo = document.getElementById('userInfo');
-    const userName = document.getElementById('userName');
-    // const statsLink = document.getElementById('statsLink'); // If needed
-
-    console.log("STATS_PAGE: Running checkLogin"); // Add log
-
-    if (token) {
-        if (storedName && userName) userName.textContent = storedName;
-        if (userInfo) userInfo.style.display = 'flex';
-        // if (statsLink) statsLink.style.display = 'inline';
-        return true;
-    }
-    if (userInfo) userInfo.style.display = 'none';
-    // if (statsLink) statsLink.style.display = 'none';
-    return false;
-}
-
 // --- Stats Page Specific Functions ---
 
-function statsFormatDate(dateStr) { /* ... same as before ... */ }
-function statsGetRuleType(ruleName) { /* ... same as before ... */ }
-function statsGetSanAntonioCourses() { /* ... return course array ... */ } // Or use global from utils
+// Helper to get rule type (can use global one if preferred)
+function statsGetRuleType(ruleName) {
+    if (!ruleName) return 'standard';
+    const name = ruleName.toLowerCase();
+    if (name.includes('free')) return 'punch';
+    if (name.includes('loyalty')) return 'loyalty';
+    if (name.includes('promo') || name.includes('special')) return 'promo';
+    return 'standard';
+}
 
+// Main function to initialize non-financial stats display
 function initializeStatsPage() {
     console.log('STATS_PAGE: Initializing non-financial stats...');
 
-    // Get elements NEEDED by this function specifically
-    // Use the shared getElement from utils.js now
+    // Use shared getElement from utils.js
     const statsContainer = getElement('statsContainer', 'Stats container not found');
     const statsNoDataMessage = getElement('noDataMessage', 'No data message element not found');
     const statsMembershipInfo = getElement('membershipInfo', 'Membership info div not found');
     const statsRecentActivity = getElement('recentActivity', 'Recent activity div not found');
     const statsPunchInfo = getElement('punchInfo', 'Punch info div not found', false);
     const statsPunchCard = getElement('punchCard', 'Punch card container not found', false);
-    const statsLoadingIndicator = getElement('loadingIndicator', 'Stats loading indicator not found', false); // Get loader here if needed
+    const statsLoadingIndicator = getElement('loadingIndicator', 'Stats loading indicator not found', false);
 
-
+    // Early exit if critical elements missing
     if (!statsContainer || !statsNoDataMessage || !statsMembershipInfo || !statsRecentActivity) {
-        console.error('STATS_PAGE: Critical elements missing.');
-        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none'; // Hide if init fails
+        console.error('STATS_PAGE: Critical elements missing for basic stats.');
+        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
         return;
     }
-    // Don't hide loading indicator here yet - let financials handle it maybe
 
-    statsNoDataMessage.style.display = 'none';
+    statsNoDataMessage.style.display = 'none'; // Hide initially
 
-    // Use the shared checkLogin (assuming utils.js loaded first)
+    // Use shared checkLogin from utils.js
     if (!checkLogin()) {
         console.log('STATS_PAGE: User not logged in.');
         if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
-        statsNoDataMessage.style.display = 'block';
-        statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Please log in.</p>`;
+        if (statsNoDataMessage) {
+             statsNoDataMessage.style.display = 'block';
+             statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Please log in.</p>`;
+        }
         return;
     }
 
     const loginDataStr = localStorage.getItem('login_data');
-    if (!loginDataStr) { /* ... handle no login data ... */ return; }
+    if (!loginDataStr) {
+         console.log('STATS_PAGE: No login_data found.');
+         if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
+          if (statsNoDataMessage) {
+              statsNoDataMessage.style.display = 'block';
+              statsNoDataMessage.innerHTML = `<h3>No Stats Available</h3><p>Login data missing.</p>`;
+          }
+         return;
+     }
 
     try {
         console.log('STATS_PAGE: Parsing login_data...');
         const loginData = JSON.parse(loginDataStr);
         console.log('STATS_PAGE: Parsed login_data successfully.');
 
-        // --- Process loginData for non-financial stats ---
+        // --- Process loginData ---
         const userData = { name: `${loginData.first_name || ''} ${loginData.last_name || ''}`.trim() };
         let membershipData = { name: 'No Membership Found', expires: 'N/A', purchased: 'N/A' };
         let hasPunchPass = false; let punchData = null; let allRounds = [];
         let roundCounts = { total: 0, punch: 0, loyalty: 0, promo: 0, standard: 0 };
-        // Use shared course data function
-        const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
+        const courses = getSanAntonioCourses(); // Use shared function
 
         if (loginData.passes && typeof loginData.passes === 'object') {
-             // ... same logic as before to process passes, uses, rules ...
-             // ... using formatDate, getRuleType from utils.js ...
-             // ... calculate punchData, roundCounts, allRounds ...
+            const passIds = Object.keys(loginData.passes);
+            if (passIds.length > 0) {
+                const pass = loginData.passes[passIds[0]];
+                if(pass) {
+                    membershipData = { name: pass.name || 'Unknown', expires: formatDate(pass.end_date), purchased: formatDate(pass.date_purchased) }; // Use shared formatDate
+                    const ruleMapping = {};
+                    if (pass.rules && Array.isArray(pass.rules)) { pass.rules.forEach(rule => { ruleMapping[rule.rule_number] = { name: rule.name, type: statsGetRuleType(rule.name) }; }); }
+                    const isTrailPassPlus = membershipData.name.includes("Trail Pass Plus");
+
+                    if (pass.uses && Array.isArray(pass.uses)) {
+                        roundCounts.total = pass.uses.length;
+                        if (isTrailPassPlus) {
+                             const freeRoundRule = pass.rules?.find(rule => rule.name?.toLowerCase().includes("free") || rule.rule_number === 2); // Safer access
+                             if (freeRoundRule) {
+                                 hasPunchPass = true;
+                                 const punchUses = pass.uses.filter(use => String(use.rule_number) === String(freeRoundRule.rule_number));
+                                 roundCounts.punch = punchUses.length;
+                                 punchData = { used: punchUses.length, total: 10, percent: (punchUses.length / 10) * 100 };
+                             }
+                        }
+
+                        allRounds = pass.uses.map(use => {
+                            const rule = ruleMapping[use.rule_number] || { name: 'Unknown', type: 'standard' };
+                            let roundType = 'standard'; let badgeText = 'Paid';
+                            if (isTrailPassPlus && (rule.name?.toLowerCase().includes('free') || String(use.rule_number) === "2")) { roundType = 'punch'; badgeText = 'Punch'; }
+                            else if (rule.type === 'loyalty') { roundType = 'loyalty'; badgeText = 'Loyalty'; roundCounts.loyalty++; }
+                            else if (rule.type === 'promo') { roundType = 'promo'; badgeText = 'Promo'; roundCounts.promo++; }
+                            else { if (!isTrailPassPlus || !(rule.name?.toLowerCase().includes('free') || String(use.rule_number) === "2")) { roundCounts.standard++; } }
+                            const teesheetId = String(use.teesheet_id);
+                            const course = courses.find(c => String(c.facilityId) === teesheetId);
+                            const courseName = course ? course.name : `Teesheet ${teesheetId}`;
+                            return { date: formatDate(use.date), rawDate: new Date(use.date), course: courseName, type: roundType, badgeText: badgeText };
+                        }).sort((a, b) => b.rawDate - a.rawDate);
+                    }
+                }
+            }
         }
         console.log('STATS_PAGE: Basic stats processing complete.');
 
         // --- Populate Basic Stats HTML ---
-        if (statsMembershipInfo) statsMembershipInfo.innerHTML = `...`; // Populate membership
+        if (statsMembershipInfo) statsMembershipInfo.innerHTML = `<div class="stat-item"><span class="stat-label">Name:</span><span>${userData.name}</span></div><div class="stat-item"><span class="stat-label">Membership:</span><span>${membershipData.name}</span></div><div class="stat-item"><span class="stat-label">Expires:</span><span>${membershipData.expires}</span></div><div class="stat-item"><span class="stat-label">Purchased:</span><span>${membershipData.purchased}</span></div>`;
         const displayPunchCard = hasPunchPass && punchData && statsPunchCard && statsPunchInfo;
-        if (displayPunchCard) { /* ... populate punchInfo ... */ statsPunchCard.style.display = 'block'; }
+        if (displayPunchCard) { statsPunchInfo.innerHTML = `<div class="punch-container"><span>${punchData.used}</span><div class="punch-bar"><div class="punch-progress" style="width: ${punchData.percent}%"></div><div class="punch-text">${punchData.used} of ${punchData.total} Used</div></div><span>${punchData.total}</span></div>`; statsPunchCard.style.display = 'block'; }
         else if (statsPunchCard) { statsPunchCard.style.display = 'none'; }
-        if (statsRecentActivity) {
-            if (allRounds.length > 0) { /* ... populate recentActivity ... */ }
-            else { statsRecentActivity.innerHTML = '<p>No activity found.</p>'; }
-        }
 
-        // Wait for financials to finish before hiding loader/showing container generally
+        if (statsRecentActivity) {
+             const activityHeader = statsRecentActivity.closest('.stats-card')?.querySelector('h3');
+             if (activityHeader) activityHeader.textContent = 'All Activity';
+            if (allRounds.length > 0) {
+                 let calculatedTotal = roundCounts.punch + roundCounts.loyalty + roundCounts.promo + roundCounts.standard;
+                 if (roundCounts.total !== calculatedTotal) { console.warn("STATS_PAGE: Discrepancy between total rounds reported and calculated sum."); }
+                 statsRecentActivity.innerHTML = `<div class="round-stats"><div class="stat-item"><span class="stat-label">Total Rounds:</span><span>${roundCounts.total}</span></div>${displayPunchCard ? `<div class="stat-item"><span class="stat-label">Punch Rounds:</span><span>${roundCounts.punch}</span></div>` : ''}<div class="stat-item"><span class="stat-label">Loyalty Rounds:</span><span>${roundCounts.loyalty}</span></div><div class="stat-item"><span class="stat-label">Promo Rounds:</span><span>${roundCounts.promo}</span></div><div class="stat-item"><span class="stat-label">Standard Paid:</span><span>${roundCounts.standard}</span></div></div><ul class="all-rounds-list">${allRounds.map(round => `<li class="round-item ${round.type}"><div><div class="course-name">${round.course}</div><div class="date">${round.date}</div></div><span class="badge badge-${round.type}">${round.badgeText}</span></li>`).join('')}</ul>`;
+             } else { statsRecentActivity.innerHTML = '<p>No activity found.</p>'; }
+        }
+        // Do not hide loader or show container here
 
     } catch (error) {
         console.error('STATS_PAGE: Error processing login data:', error);
-        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none'; // Hide on error
-        if (statsNoDataMessage) {
-            statsNoDataMessage.style.display = 'block';
-            statsNoDataMessage.innerHTML = `<h3>Error Loading Stats</h3><p>Problem processing data. (${error.message})</p>`;
-        }
-        // Ensure stats container isn't shown if basic stats failed
-         if (statsContainer) statsContainer.style.display = 'none';
+        if (statsLoadingIndicator) statsLoadingIndicator.style.display = 'none';
+        if (statsNoDataMessage) { statsNoDataMessage.style.display = 'block'; statsNoDataMessage.innerHTML = `<h3>Error Loading Stats</h3><p>Problem processing data. (${error.message})</p>`; }
+        if (statsContainer) statsContainer.style.display = 'none';
     }
 }
 
@@ -124,17 +142,15 @@ function initializeStatsPage() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('STATS_PAGE: DOM content loaded...');
 
-    // Check initial login state for header (using shared function)
+    // Check initial login state for header (using shared function from utils.js)
     if (typeof checkLogin === 'function') {
         checkLogin();
     } else {
         console.error("STATS_PAGE: checkLogin function not found from utils.js!");
     }
 
-
     // Attach logout listener
-    // Get button INSIDE the listener
-    const logoutBtn = document.getElementById('logoutBtn');
+    const logoutBtn = document.getElementById('logoutBtn'); // Get element directly
     if (logoutBtn) {
          logoutBtn.addEventListener('click', function() {
             console.log('STATS_PAGE: Logout clicked');
@@ -144,36 +160,31 @@ document.addEventListener('DOMContentLoaded', function() {
             // Call shared cache clear from financials.js if it exists
             if(typeof clearFinancialCache === 'function') {
                  clearFinancialCache();
-            } else { localStorage.removeItem('user_financial_details_cache'); }
-            // Update header state
+            } else { localStorage.removeItem('user_financial_details_cache'); } // Fallback
+            // Update header state using shared function
             if(typeof checkLogin === 'function') checkLogin();
             window.location.href = 'index.html'; // Redirect
         });
-    } else {
-        console.warn("STATS_PAGE: Logout button not found.");
-    }
+    } else { console.warn("STATS_PAGE: Logout button not found."); }
 
     // Initialize the basic stats part
     if (typeof initializeStatsPage === 'function') {
         initializeStatsPage();
-    } else {
-        console.error('STATS_PAGE: initializeStatsPage function is missing!');
-    }
+    } else { console.error('STATS_PAGE: initializeStatsPage function is missing!'); }
 
     // Initialize the financials part (defined in financials.js)
     if (typeof initializeFinancialsSection === 'function') {
         console.log("STATS_PAGE: Calling initializeFinancialsSection...");
-        // This function should handle hiding the main loader and showing statsContainer
-        initializeFinancialsSection();
+        initializeFinancialsSection(); // This should handle final loader/container state
     } else {
          console.error('STATS_PAGE: initializeFinancialsSection function missing! Financials will not load.');
-         const fsDiv = document.getElementById('financialSummary');
-         if(fsDiv) fsDiv.innerHTML = '<p style="color:red;">Error: Financials script error.</p>';
-         // Hide spinner/show container if financials are missing but basic stats might have loaded
+         // If financials is missing, manually hide loader and show container
          const loadingIndicator = document.getElementById('loadingIndicator');
          const container = document.getElementById('statsContainer');
          if (loadingIndicator) loadingIndicator.style.display = 'none';
          if (container) container.style.display = 'grid'; // Or block
+         const fsDiv = document.getElementById('financialSummary');
+         if(fsDiv) fsDiv.innerHTML = '<p style="color:red;">Error: Financials script missing.</p>';
     }
 
     console.log('STATS_PAGE: Initialization sequence complete.');
