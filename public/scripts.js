@@ -812,6 +812,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else { console.error('initializeStatsPage function missing'); }
       // **** ADD CALL TO INITIALIZE FINANCIALS ****
         if (typeof initializeFinancialsSection === 'function') {
+              console.log("DEBUG: Calling initializeFinancialsSection...");
              initializeFinancialsSection(); // Call the function from financials.js
         } else {
              console.error('initializeFinancialsSection function missing! Financials will not load.');
