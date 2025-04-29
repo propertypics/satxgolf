@@ -1,18 +1,5 @@
 // --- START OF FILE stats-script.js (Example Name) ---
 
-const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev"; // Keep for potential future use
-const APP_VERSION = "1.0.11-stats"; // Indicate version specific to stats
-
-// Helper function to safely get elements
-function getElement(id, errorMessage, isCritical = true) {
-    const element = document.getElementById(id);
-    if (!element && isCritical) {
-        console.error(errorMessage || `CRITICAL: Element with id '${id}' not found on stats page`);
-    } else if (!element && !isCritical) {
-         console.warn(errorMessage || `Warning: Element with id '${id}' not found on stats page`);
-    }
-    return element;
-}
 
 // --- Get DOM Elements REQUIRED for stats page ---
 const userInfo = getElement('userInfo', 'User info display area not found', false); // Assume in header
@@ -26,36 +13,9 @@ const punchInfo = getElement('punchInfo', 'Punch info div not found', false);   
 const punchCard = getElement('punchCard', 'Punch card container not found', false); // Optional element
 const recentActivity = getElement('recentActivity', 'Recent activity div not found');
 
-// --- Login/Auth Check ---
-function checkLogin() {
-    const token = localStorage.getItem('jwt_token');
-    const storedName = localStorage.getItem('user_name');
-    const statsLink = document.getElementById('statsLink'); // Check for it specifically here if needed
-
-    if (token) {
-        if (storedName && userName) userName.textContent = storedName;
-        if (userInfo) userInfo.style.display = 'flex';
-        // No separate statsLink manipulation needed on the stats page itself
-        return true;
-    }
-    if (userInfo) userInfo.style.display = 'none';
-    if (statsLink) statsLink.style.display = 'none'; // Hide if present and not logged in
-    return false;
-}
 
 // --- Stats Page Specific Functions ---
 
-function formatDate(dateStr) {
-    // Basic date formatting
-    if (!dateStr) return 'N/A';
-    try {
-        const date = new Date(dateStr.replace(/-/g, '/')); // Try replacing dashes
-        if (isNaN(date.getTime())) return dateStr; // Return original if invalid
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch (e) {
-        return dateStr; // Return original string if parsing fails
-    }
-}
 
 function getRuleType(ruleName) {
     if (!ruleName) return 'standard';

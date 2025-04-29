@@ -1,8 +1,5 @@
 // --- START OF FILE financials.js ---
 
-// Assume API_BASE_URL is globally available or passed in/imported if using modules
-// For simplicity now, let's redefine it here if needed, or ensure it's global.
-// const API_BASE_URL = "https://satxgolf.wade-lewis.workers.dev"; // Uncomment if not global
 
 console.log("financials.js loaded"); // Log to confirm file loading
 
@@ -21,16 +18,6 @@ function formatFinancialsDate(dateStr) {
     } catch (e) { return dateStr; }
 }
 
-// Simple hashing function (can be shared or duplicated)
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return String(hash);
-}
 
 // Option 1: Assume a global function exists (defined in another script or globally)
 // Option 2: Pass the course list into functions that need it
