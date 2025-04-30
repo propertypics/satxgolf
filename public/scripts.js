@@ -620,20 +620,110 @@ function showBookingSuccess(reservationId, data) {
     console.log("Booking Success:", reservationId, data);
     alert(`Booking Confirmed!\nConfirmation #: ${reservationId}\nCourse: ${selectedCourse?.name}\nTime: ${selectedTeeTime?.formattedTime}`); // Replace with better UI element
 }
-function storeBookingInLocalStorage(reservationId, bookingContext, responseData) {
+
+/**
+ * Stores booking details in localStorage.
+ * Expects context object with necessary details.
+ * @param {string} finalTtid - The final confirmation TTID from ForeUp.
+ * @param {object} bookingContext - Object containing booking details. Expected properties:
+ *   - displayDate (e.g., "Sun, May 4, 2025")
+ *   - displayTime (e.g., "3:20 PM")
+ *   - isoDateTime (e.g., "2025-05-04 15:20" or full ISO string) - REQUIRED for timestamp
+ *   - courseName
+ *   - playerCount
+ *   - cartSelected (boolean)
+ *   - holesSelected (number)
+ *   - courseId (optional)
+ *   - facilityId (optional)
+ * @param {object} responseData - Full confirmation response from the booking API (optional).
+ */
+function storeBookingInLocalStorage(finalTtid, bookingContext, responseData) {
+    // Validate input
+    if (!finalTtid || !bookingContext) {
+        console.error("STORE_BOOKING: Missing required arguments (finalTtid, bookingContext).");
+        return;
+    }
+
     try {
+        console.log("STORE_BOOKING: Storing booking:", finalTtid, "Context:", bookingContext);
         const existingBookingsStr = localStorage.getItem('user_bookings');
         const existingBookings = existingBookingsStr ? JSON.parse(existingBookingsStr) : [];
+
+        // --- Calculate Timestamp ---
+        let teeTimestamp = null;
+        const bookingIsoDateTime = bookingContext.isoDateTime; // Get from context
+        if (bookingIsoDateTime) {
+            try {
+                // Attempt parsing (adjust based on actual format in bookingContext)
+                // Assume "YYYY-MM-DD HH:MM" format coming from ForeUp time field
+                const parts = bookingIsoDateTime.split(' ');
+                let parsedDate = null;
+                if (parts.length === 2) {
+                    const dateParts = parts[0].split('-'); const timeParts = parts[1].split(':');
+                    if (dateParts.length === 3 && timeParts.length === 2) {
+                         // Create date assuming it's local to the *course* - best guess without timezone
+                         // Month is 0-indexed
+                         parsedDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), parseInt(timeParts[0]), parseInt(timeParts[1]), 0);
+                    }
+                }
+                // Fallback if parts parsing failed
+                if (!parsedDate || isNaN(parsedDate.getTime())) {
+                     parsedDate = new Date(bookingIsoDateTime.replace(' ', 'T')); // Try standard ISOish parsing
+                }
+                // Final check
+                if (parsedDate && !isNaN(parsedDate.getTime())) {
+                    teeTimestamp = parsedDate.getTime();
+                } else {
+                     console.warn("STORE_BOOKING: Could not parse valid date from isoDateTime:", bookingIsoDateTime);
+                }
+            } catch(e) { console.error("STORE_BOOKING: Error parsing booking date/time:", bookingIsoDateTime, e); }
+        } else {
+             console.warn("STORE_BOOKING: bookingContext missing isoDateTime for timestamp calculation.");
+        }
+        console.log("STORE_BOOKING: Calculated teeTimestamp:", teeTimestamp);
+        // --- End Timestamp Calculation ---
+
+
         const newBooking = {
-            id: reservationId, date: selectedDate ? selectedDate.textContent : 'N/A',
-            time: bookingContext?.formattedTime || 'N/A', course: selectedCourse ? selectedCourse.name : 'N/A',
-            players: bookingContext?.playerCount, cart: bookingContext?.cartSelected, holes: bookingContext?.holesSelected,
-            createdAt: new Date().toISOString(), teeTimeDetails: bookingContext, confirmationData: responseData
+            id: finalTtid,
+            // Get display values from context
+            displayDate: bookingContext.displayDate || 'Unknown Date',
+            displayTime: bookingContext.displayTime || 'Unknown Time',
+            isoDateTime: bookingIsoDateTime, // Store the source time string
+            teeTimestamp: teeTimestamp, // Store milliseconds since epoch for filtering
+            course: bookingContext.courseName || 'Unknown Course',
+            players: bookingContext.playerCount || '?',
+            cart: bookingContext.cartSelected, // Store boolean
+            holes: bookingContext.holesSelected || '?',
+            courseId: bookingContext.courseId, // Store if available
+            facilityId: bookingContext.facilityId, // Store if available
+            createdAt: new Date().toISOString(),
+            // confirmationData: responseData // Optionally store full confirmation
         };
-        existingBookings.push(newBooking); localStorage.setItem('user_bookings', JSON.stringify(existingBookings));
-        console.log('Booking stored in localStorage:', newBooking);
-    } catch (e) { console.error("Failed to store booking in localStorage", e); }
+
+        // Update if exists, otherwise add
+        const existingIndex = existingBookings.findIndex(b => b.id === finalTtid);
+        if (existingIndex > -1) {
+            console.log(`STORE_BOOKING: Updating existing booking ${finalTtid}`);
+            existingBookings[existingIndex] = newBooking;
+        } else {
+            console.log(`STORE_BOOKING: Adding new booking ${finalTtid}`);
+            existingBookings.push(newBooking);
+        }
+
+        localStorage.setItem('user_bookings', JSON.stringify(existingBookings));
+        console.log('STORE_BOOKING: Booking stored/updated in localStorage successfully.');
+
+    } catch (e) {
+        console.error("STORE_BOOKING: Failed processing/storing booking in localStorage", e);
+    }
 }
+
+
+
+
+
+
 
 // --- Stats Page Functions --- (Include if used)
 function getRuleType(ruleName) { if (!ruleName) return 'standard'; /* ... more logic ... */ return 'standard'; }
