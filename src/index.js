@@ -115,6 +115,7 @@ async function handleRequest(request) {
   }
 }
 
+
 // --- Request Handler Functions ---
 
 // ... (Keep existing: handleLoginRequest, handleTeeTimesRequest, handleCoursesRequest, ...)
@@ -122,6 +123,80 @@ async function handleRequest(request) {
 // ... (Keep existing: handleSaleDetailsRequest) ...
 // ... (Keep existing: handleReservationsRequest - the one fetching the USER object) ...
 
+
+
+// Handle login requests to ForeUp
+async function handleLoginRequest(request) {
+  debug("Worker: Handling /api/login request"); // Add identifier
+  try {
+    let requestData;
+    try {
+      requestData = await request.json();
+      debug("Worker /api/login: Parsed request data", requestData);
+    } catch (error) {
+      debug("Worker /api/login: Invalid JSON body", error);
+      return errorResponse("Invalid JSON in request body", 400);
+    }
+
+    if (!requestData.username || !requestData.password) {
+       debug("Worker /api/login: Missing username or password");
+      return errorResponse("Username and password are required", 400);
+    }
+
+    const loginUrl = "https://foreupsoftware.com/index.php/api/booking/users/login";
+    const formData = new URLSearchParams();
+    formData.append("username", requestData.username);
+    formData.append("password", requestData.password);
+    formData.append("booking_class_id", ""); // Required empty by ForeUp
+    formData.append("api_key", "no_limits");
+    formData.append("course_id", "20106"); // Default/Example course ID
+
+    // Headers needed to mimic a browser login request
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "Accept": "application/json, text/javascript, */*; q=0.01",
+      "api-key": "no_limits",
+      "x-fu-golfer-location": "foreup",
+      "x-requested-with": "XMLHttpRequest",
+      "Origin": "https://foreupsoftware.com",
+      "Referer": "https://foreupsoftware.com/index.php/booking/", // Generic referer
+      "User-Agent": "Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)" // Identify worker
+    };
+    debug("Worker /api/login: Sending login request to ForeUp", { url: loginUrl, headers: headers, body: formData.toString().substring(0,100)+"..." }); // Log partial body
+
+    // Make the actual call to ForeUp
+    const response = await fetch(loginUrl, { method: "POST", headers: headers, body: formData });
+    debug(`Worker /api/login: Received login response from ForeUp status: ${response.status}`);
+
+    // Extract cookies and response body
+    const cookies = response.headers.get('set-cookie');
+    const responseText = await response.text();
+    debug("Worker /api/login: Raw response text (first 200):", responseText.substring(0,200));
+
+
+    let data;
+    try {
+      if (!responseText || !responseText.trim()) throw new Error("Empty response from ForeUp login");
+      data = JSON.parse(responseText);
+      debug("Worker /api/login: Parsed ForeUp login response", data);
+      if (cookies) {
+          data.cookies = cookies; // Add cookies for frontend to store
+          debug("Worker /api/login: Added cookies to response data");
+      }
+    } catch (error) {
+      debug(`Worker /api/login: Error parsing login response JSON: ${error.message}`, { responseText: responseText.substring(0,500) });
+      // Return ForeUp's status if possible, but indicate error
+      return errorResponse(`Invalid JSON response from ForeUp Login API: ${error.message}`, response.status >= 400 ? response.status : 502);
+    }
+
+    // Return the data received from ForeUp (including added cookies)
+    return jsonResponse(data, response.status);
+
+  } catch (error) {
+    debug(`Worker /api/login: Uncaught error in handler: ${error.message}`, { stack: error.stack });
+    return errorResponse(`Login failed: ${error.message}`);
+  }
+}
 
 /**
  * Handles requests to cancel a specific reservation via ForeUp.
