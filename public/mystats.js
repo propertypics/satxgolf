@@ -20,7 +20,7 @@ function statsGetRuleType(ruleName) {
     return 'standard';
 }
 
-**
+/**
  * Fetches upcoming reservations using the API call and displays them.
  * Manages loading/error states for the reservation section.
  */
