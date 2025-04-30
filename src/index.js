@@ -372,68 +372,178 @@ async function handleSaleDetailsRequest(request) {
   }
 }
 
+
 /**
- * Handles fetching the user's reservation list by scraping USER object.
+ * Handles requests to fetch the user's reservation list.
+ * Fetches a single ForeUp booking page, finds and extracts the embedded USER object JSON string,
+ * parses it, processes date/time fields within the reservations array, and returns the processed array.
  */
 async function handleReservationsRequest(request) {
     debug("Worker: Handling /api/reservations request");
-    if (request.method !== "GET") return errorResponse("Method Not Allowed", 405);
+
+    // 1. Check Method
+    if (request.method !== "GET") {
+        return errorResponse("Method Not Allowed, use GET", 405);
+    }
+
+    // 2. Authenticate User
     const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
     const cookies = request.headers.get("X-ForeUp-Cookies");
-    if (!jwt) return errorResponse("Authentication required", 401);
+    if (!jwt) {
+        debug("Worker /api/reservations: Missing JWT");
+        return errorResponse("Authentication required", 401);
+    }
+    debug("Worker /api/reservations: Auth headers received.");
 
-    const foreupBookingPageUrl = 'https://foreupsoftware.com/index.php/booking/20106/3567'; // Default page
+    // 3. Define Target ForeUp Page URL (Using a default known course)
+    const foreupBookingPageUrl = 'https://foreupsoftware.com/index.php/booking/20106/3567'; // Northern Hills example
     debug("Worker /api/reservations: Fetching ForeUp page:", foreupBookingPageUrl);
+
+    // 4. Construct Headers for ForeUp Request
     const headers = {
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Cookie': cookies || '',
-        'Referer': 'https://foreupsoftware.com/', 'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
-        'x-authorization': `Bearer ${jwt}`
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'en-US,en;q=0.9',
+        'Cookie': cookies || '',
+        'Referer': 'https://foreupsoftware.com/',
+        'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
+        'x-authorization': `Bearer ${jwt}`,
+        // Add other headers like sec-* if testing shows they are vital
     };
+    debug("Worker /api/reservations: Headers for ForeUp fetch:", headers);
 
     try {
+        // 5. Fetch the HTML page content
         const response = await fetch(foreupBookingPageUrl, { headers: headers });
         debug(`Worker /api/reservations: ForeUp page fetch status: ${response.status}`);
-        if (!response.ok) throw new Error(`Failed to fetch user data page: Status ${response.status}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Worker /api/reservations: Failed ForeUp page fetch. Status: ${response.status}. Response: ${errorText.substring(0,500)}`);
+            throw new Error(`Failed to fetch user data page: Status ${response.status}`);
+        }
         const htmlText = await response.text();
+        debug("Worker /api/reservations: Fetched HTML length:", htmlText.length);
+        // debug("Worker /api/reservations: Fetched HTML start:", htmlText.substring(0, 5000)); // Optional: Log large chunk if needed
 
+        // 6. Extract the USER JSON object string using String Searching
         let userJsonString = null;
-        const regex = /\bUSER\s*=\s*({(?:[^{}]|{[^{}]*})*});?\s*(?:var |window\.|\<\/script\>)/i;
-        const match = htmlText.match(regex);
-        if (match && match[1]) { userJsonString = match[1]; }
-        else { throw new Error("Could not extract reservation data structure."); }
+        const startMarker = 'USER = {'; // **** IMPORTANT: Verify this exact string in ForeUp's source ****
+        let startIndex = htmlText.indexOf(startMarker);
 
-        let userData;
-        try { userData = JSON.parse(userJsonString); }
-        catch(e) { throw new Error("Failed to parse reservation data."); }
-
-        if (userData && Array.isArray(userData.reservations)) {
-            debug(`Worker /api/reservations: Found ${userData.reservations.length} reservations.`);
-             const processedReservations = userData.reservations.map((res) => {
-                 let teeTimestamp = null; let displayDate = 'Invalid Date'; let displayTime = 'Invalid Time'; let isoDateTime = null;
-                 const startTimeStr = res.start;
-                 if (startTimeStr && typeof startTimeStr === 'string' && startTimeStr.length === 12) {
-                     const year = parseInt(startTimeStr.substring(0, 4), 10); const month = parseInt(startTimeStr.substring(4, 6), 10);
-                     const day = parseInt(startTimeStr.substring(6, 8), 10); const hour = parseInt(startTimeStr.substring(8, 10), 10);
-                     const minute = parseInt(startTimeStr.substring(10, 12), 10);
-                     isoDateTime = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
-                     try {
-                          const dLocal = new Date(year, month - 1, day, hour, minute);
-                          if (!isNaN(dLocal.getTime())) {
-                              teeTimestamp = dLocal.getTime();
-                              displayDate = dLocal.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-                              displayTime = dLocal.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                          }
-                     } catch (e) { console.warn("Worker /api/reservations: Error creating date object:", e); }
+        // Optional: Try alternate common patterns if the first fails
+        if (startIndex === -1) {
+             const altMarkers = ['var USER = {', 'window.USER = {', ' USER = {']; // Note leading space
+             for (const marker of altMarkers) {
+                 startIndex = htmlText.indexOf(marker);
+                 if (startIndex !== -1) {
+                     debug("Worker /api/reservations: Found user data with marker:", marker);
+                     startMarker = marker; // Update marker if found
+                     break;
                  }
-                 return { ...res, teeTimestamp: teeTimestamp, displayDate: displayDate, displayTime: displayTime, isoDateTime: isoDateTime };
-            });
-            return jsonResponse(processedReservations);
-        } else { return jsonResponse([]); }
+             }
+        }
+
+        if (startIndex === -1) {
+            debug("Worker /api/reservations: Start marker ('USER = {', 'var USER = {', etc.) not found in HTML.");
+            throw new Error("Could not find start of USER data in page source.");
+        } else {
+            debug("Worker /api/reservations: Found start marker at index:", startIndex);
+            // Find the corresponding closing brace using brace counting
+            let braceCount = 1;
+            let endIndex = startIndex + startMarker.length; // Start searching right after the opening '{'
+            while (endIndex < htmlText.length && braceCount > 0) {
+                const char = htmlText[endIndex];
+                if (char === '{') {
+                    braceCount++;
+                } else if (char === '}') {
+                    braceCount--;
+                }
+                endIndex++;
+                 // Safety break - adjust limit if USER object is extremely large
+                if (endIndex > startIndex + 1000000) { // Limit search to 1MB past start
+                     console.error("Worker /api/reservations: Brace counting exceeded safety limit.");
+                     throw new Error("Could not find matching closing brace within reasonable limit.");
+                }
+            }
+
+            if (braceCount === 0) {
+                // Found the matching closing brace (which is at endIndex - 1)
+                userJsonString = htmlText.substring(startIndex + startMarker.length - 1, endIndex); // Extract { ... }
+                debug("Worker /api/reservations: Extracted USER JSON string (first 300 chars):", userJsonString.substring(0, 300)+"...");
+            } else {
+                debug("Worker /api/reservations: Could not find matching closing brace for USER object.");
+                throw new Error("Could not accurately extract reservation data structure (unbalanced braces?).");
+            }
+        }
+
+        // 7. Parse the JSON string
+        let userData;
+        try {
+             userData = JSON.parse(userJsonString);
+             debug("Worker /api/reservations: Successfully parsed USER object.");
+        } catch(e) {
+             console.error("Worker /api/reservations: Failed to parse extracted JSON string:", e);
+             debug("Worker /api/reservations: Extracted string that failed (first 1000):", userJsonString.substring(0, 1000));
+             throw new Error(`Failed to parse reservation data: ${e.message}`);
+        }
+
+        // 8. Extract, Process Dates, and Return the reservations array
+        let reservations = []; // Default to empty array
+        if (userData && Array.isArray(userData.reservations)) {
+            reservations = userData.reservations;
+            debug(`Worker /api/reservations: Extracted ${reservations.length} reservations.`);
+
+            // Process dates/times within the extracted array
+            reservations = reservations.map((res) => {
+                 let teeTimestamp = null; let displayDate = 'Invalid Date'; let displayTime = 'Invalid Time'; let isoDateTime = null;
+                 const startTimeStr = res.start; // e.g., "202504061220"
+
+                 if (startTimeStr && typeof startTimeStr === 'string' && startTimeStr.length === 12) {
+                     try { // Wrap date parsing in try-catch per item
+                         const year = parseInt(startTimeStr.substring(0, 4), 10);
+                         const month = parseInt(startTimeStr.substring(4, 6), 10); // 01-12
+                         const day = parseInt(startTimeStr.substring(6, 8), 10);
+                         const hour = parseInt(startTimeStr.substring(8, 10), 10);
+                         const minute = parseInt(startTimeStr.substring(10, 12), 10);
+
+                         // Basic ISO-like string (without timezone assumption)
+                         isoDateTime = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
+
+                         // Create Date object - *ASSUMES* these parts represent local time at course
+                         // JS Date constructor handles month as 0-indexed
+                         const dLocal = new Date(year, month - 1, day, hour, minute);
+
+                         if (!isNaN(dLocal.getTime())) {
+                             teeTimestamp = dLocal.getTime();
+                             // Use formatDate from utils.js if available and preferred for consistency
+                              const formatDateFunc = typeof formatDate === 'function' ? formatDate : (dStr) => { try { return new Date(dStr).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }); } catch {return 'N/A';} };
+                              displayDate = formatDateFunc(dLocal); // Format the date object
+                              displayTime = dLocal.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                         } else {
+                              console.warn(`Worker /api/reservations: Invalid date constructed for start: ${startTimeStr}`);
+                         }
+                     } catch (e) { console.warn(`Worker /api/reservations: Error parsing date components for start: ${startTimeStr}`, e); }
+                 } else {
+                     console.warn(`Worker /api/reservations: Invalid or missing 'start' field format for reservation:`, res.TTID || res.teetime_id);
+                 }
+                 // Return object with processed date/time fields added
+                 return { ...res, teeTimestamp, displayDate, displayTime, isoDateTime };
+            }); // End map
+
+        } else {
+            debug("Worker /api/reservations: 'reservations' array not found or not an array in USER object.");
+        }
+
+        // Return JUST the processed reservations array (or empty array)
+        return jsonResponse(reservations);
+
     } catch (error) {
-        debug(`Worker /api/reservations: Error: ${error.message}`, { stack: error.stack });
+        // Catch errors from fetch, extraction, parsing etc.
+        debug(`Worker /api/reservations: Error handling request: ${error.message}`, { stack: error.stack });
         return errorResponse(`Failed to fetch reservations: ${error.message}`);
     }
 }
+
+
 
 /**
  * Handles requests to cancel a specific reservation via ForeUp.
