@@ -55,6 +55,88 @@ function errorResponse(message, status = 500) {
   return jsonResponse({ error: true, success: false, message: message }, status); // Add success: false
 }
 
+/**
+ * Returns the static list of known San Antonio Golf Trail courses and their IDs.
+ * @returns {Array<object>} Array of course objects.
+ */
+function getSanAntonioCourses() {
+  // Central source for course data and ID mappings used by the worker and potentially frontend
+  // Ensure courseId and facilityId are correct based on ForeUp URLs/data
+  return [
+    {
+        name: "Brackenridge Park",
+        details: "Rating 70.3 / Slope 126 / Par 71 / 6243 Yds",
+        // url: "https://foreupsoftware.com/index.php/booking/20103/3564#teetimes", // Optional URL
+        courseId: "20103", // Used in API paths like /courses/20103/...
+        facilityId: "3564" // Used as schedule_id or teesheet_id
+    },
+    {
+        name: "Cedar Creek",
+        details: "Rating 73.4 / Slope 132 / Par 72 / 7158 yds",
+        // url: "https://foreupsoftware.com/index.php/booking/20104/3565#/teetimes",
+        courseId: "20104",
+        facilityId: "3565"
+    },
+    {
+        name: "Mission del Lago",
+        details: "Rating 74.1 / Slope 134 / Par 72 / 7044 yds",
+        // url: "https://foreupsoftware.com/index.php/booking/20105/3566#teetimes/",
+        courseId: "20105",
+        facilityId: "3566"
+    },
+    {
+        name: "Northern Hills",
+        details: "Rating 70.8 / Slope 118 / Par 72 / 6602 yds",
+        // url: "https://foreupsoftware.com/index.php/booking/20106/3567#teetimes",
+        courseId: "20106",
+        facilityId: "3567"
+    },
+    {
+        name: "Olmos Basin",
+        details: "Rating 73.9 / Slope 135 / Par 72 / 7038 yds",
+        // url: "https://foreupsoftware.com/index.php/booking/20107/3568#teetimes",
+        courseId: "20107",
+        facilityId: "3568"
+    },
+    {
+        name: "Riverside 18", // Make sure name matches what frontend expects if using mapping
+        details: "Rating 72 / Slope 128 / Par 72 / 6694 yds",
+        // url: "https://foreupsoftware.com/index.php/booking/20108/3569#teetimes",
+        courseId: "20108", // Note: Same courseId as Par 3
+        facilityId: "3569" // Different facilityId
+    },
+    {
+        name: "The Teddy Bear Par 3", // Make sure name matches
+        details: "The Par 3 at Riverside",
+        // url: "https://foreupsoftware.com/index.php/booking/20108/3570#teetimes",
+        courseId: "20108", // Note: Same courseId as 18-hole
+        facilityId: "3570" // Different facilityId
+    },
+    {
+        name: "San Pedro Par 3", // Make sure name matches
+        details: "Driving Range & Lighted Par 3",
+        // url: "https://foreupsoftware.com/index.php/booking/20109/3572#teetimes",
+        courseId: "20109",
+        facilityId: "3572"
+    }
+  ];
+}
+
+async function handleCoursesRequest(request) {
+  debug("Handling courses request");
+  try {
+      const courses = getSanAntonioCourses(); // Call the function
+      // Basic validation
+      if (!Array.isArray(courses)) {
+          throw new Error("getSanAntonioCourses did not return an array.");
+      }
+      return jsonResponse(courses); // Return the result using the JSON helper
+  } catch (error) {
+      console.error("Worker: Error getting course data:", error);
+      return errorResponse("Failed to retrieve course list.", 500);
+  }
+}
+
 // Main request handler
 async function handleRequest(request) {
   // ---vvv--- Handle OPTIONS first ---vvv---
