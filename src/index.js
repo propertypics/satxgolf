@@ -39,15 +39,22 @@ function handleOptions(request) {
 
 // Create a standard JSON response
 function jsonResponse(data, status = 200) {
-  debug(`Creating JSON response with status ${status}`, data);
-  return new Response(JSON.stringify(data), {
-    status: status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json"
-    }
-  });
+  debug(`Creating JSON response with status ${status}`, data); // <<< Does this log appear before the 500?
+  try {
+      return new Response(JSON.stringify(data), { // <<< Could JSON.stringify fail?
+          status: status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+  } catch (stringifyError) {
+      console.error("Worker: Failed to stringify JSON response:", stringifyError);
+      // Return a plain text error if stringify fails
+      return new Response(`{"error":true,"message":"Internal Server Error: Failed to serialize response."}`, {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+  }
 }
+
 
 // Create an error response
 function errorResponse(message, status = 500) {
