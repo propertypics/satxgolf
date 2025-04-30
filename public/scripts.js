@@ -603,10 +603,26 @@ function completeReservation(pendingReservationId, teeTimeDetails, bookingSelect
         if (data.TTID) { // Check for final confirmation ID from ForeUp
             console.log('Reservation completed successfully! Final ID:', data.TTID);
             showBookingSuccess(data.TTID, data);
-            storeBookingInLocalStorage(data.TTID, { ...bookingSelections, ...teeTimeDetails, formattedTime: teeTimeDetails.formattedTime }, data); // Store richer context
-            hideBookingModal();
-        } else { showBookingError(data.msg || data.message || 'Failed to complete reservation (Confirmation ID missing)'); }
-    })
+                  // **** Construct Context for Storing ****
+        const contextForStorage = {
+             displayDate: selectedDate ? selectedDate.textContent : null, // From global or state
+             displayTime: selectedTeeTime ? selectedTeeTime.formattedTime : null, // From global or state
+             isoDateTime: selectedTeeTime ? selectedTeeTime.time : null, // From global or state (e.g., "2025-05-04 15:20")
+             courseName: selectedCourse ? selectedCourse.name : null, // From global or state
+             playerCount: bookingSelections.playerCount, // bookingSelections should be available here
+             cartSelected: bookingSelections.cartSelected,
+             holesSelected: bookingSelections.holesSelected,
+             courseId: selectedCourse ? selectedCourse.courseId : null,
+             facilityId: selectedCourse ? selectedCourse.facilityId : null
+        };
+        // **** End Construct Context ****
+
+        // Pass final TTID and the context object
+        storeBookingInLocalStorage(data.TTID, contextForStorage, data);
+
+        hideBookingModal();
+    } else { /* ... handle booking completion failure ... */ }
+})
     .catch(error => { console.error('Error during complete reservation fetch:', error); showBookingError(`Failed to finalize booking: ${error.message}`); resetBookNowButton(); });
 }
 
