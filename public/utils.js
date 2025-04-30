@@ -125,4 +125,59 @@ function hideModal(modalElement) {
     }
 }
 
+/**
+ * Fetches the user's reservation list from the backend worker.
+ * Requires user to be logged in (sends JWT/Cookies).
+ * @returns {Promise<Array>} A promise resolving with the array of reservation objects (processed by worker).
+ */
+async function fetchReservations() {
+    console.log("UTILS: Fetching reservations...");
+    const token = localStorage.getItem('jwt_token');
+    const cookies = localStorage.getItem('foreup_cookies');
+
+    // Check if logged in before attempting fetch
+    if (!token) {
+        console.error("UTILS: Cannot fetch reservations, user not logged in (no token).");
+        // Return an empty array or throw an error, depending on how caller handles it
+        // Throwing might be better to indicate failure clearly
+        throw new Error("Authentication required to fetch reservations.");
+        // return [];
+    }
+
+    // Use global API_BASE_URL
+    const url = `${API_BASE_URL}/api/reservations`;
+    const headers = {
+        // No Content-Type needed for GET
+        'Authorization': `Bearer ${token}`,
+        'X-ForeUp-Cookies': cookies || '' // Send cookies if available
+        // Add other headers like Accept if necessary, but usually not required for GET->JSON
+    };
+
+    try {
+        console.log(`UTILS: Calling GET ${url}`);
+        const response = await fetch(url, { method: 'GET', headers: headers });
+
+        console.log(`UTILS: Fetch reservations response status: ${response.status}`);
+        if (!response.ok) {
+            let errorMsg = `Failed to fetch reservations: ${response.status}`;
+            try {
+                const errData = await response.json();
+                errorMsg = errData.message || errData.error || errorMsg;
+            } catch (e) { /* Ignore if response body isn't JSON */ }
+            throw new Error(errorMsg);
+        }
+
+        const reservations = await response.json();
+        if (!Array.isArray(reservations)) {
+             console.error("UTILS: Reservations response is not an array:", reservations);
+             throw new Error("Invalid data format received for reservations.");
+        }
+        console.log(`UTILS: Successfully fetched ${reservations.length} reservations.`);
+        return reservations; // Return the array of reservation objects
+
+    } catch (error) {
+        console.error("UTILS: Error fetching reservations:", error);
+        throw error; // Re-throw the error for the caller to handle
+    }
+}
 // --- END OF FILE utils.js ---
