@@ -180,4 +180,79 @@ async function fetchReservations() {
         throw error; // Re-throw the error for the caller to handle
     }
 }
+
+/**
+ * Calls the backend worker to cancel a reservation.
+ * @param {string} reservationId - The final TTID of the reservation to cancel.
+ * @returns {Promise<object>} Promise resolving with the worker's response object (e.g., {success: true} or {success: false, message: ...}).
+ */
+async function cancelBookingApi(reservationId) {
+    console.log(`UTILS: Attempting to cancel reservation ID: ${reservationId}`);
+    const token = localStorage.getItem('jwt_token');
+    const cookies = localStorage.getItem('foreup_cookies');
+
+    // Check if user is authenticated client-side first
+    if (!token) {
+        console.error("UTILS: No token found for cancellation API call.");
+        // Return a structured error object
+        return { success: false, message: "Authentication required. Please log in again." };
+    }
+
+    // Use global API_BASE_URL defined in this file
+    if (typeof API_BASE_URL === 'undefined') {
+         console.error("UTILS: API_BASE_URL not defined!");
+         return { success: false, message: "API configuration error." };
+    }
+    const url = `${API_BASE_URL}/api/cancel-reservation`;
+
+    try {
+        console.log(`UTILS: Sending POST to ${url} for cancellation.`);
+        const response = await fetch(url, {
+            method: 'POST', // Using POST, expecting ID in body as defined in worker
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-ForeUp-Cookies': cookies || '' // Include cookies if they exist
+            },
+            body: JSON.stringify({ reservationId: reservationId }) // Send the TTID in the body
+        });
+
+        console.log(`UTILS: Cancel API raw response status: ${response.status}`);
+
+        // Try to parse JSON regardless of status to get potential error messages
+        let responseData = {};
+        try {
+            responseData = await response.json();
+            console.log("UTILS: Parsed cancellation response data:", responseData);
+        } catch (e) {
+            // Handle cases where response isn't JSON (e.g., 204 No Content, or server error HTML)
+            console.warn("UTILS: Cancel API response was not JSON.");
+            if (response.ok) { // If status was OK (like 204) but no body
+                 return { success: true, message: "Cancellation processed (No Content)." };
+            } else {
+                 // If status was error and body wasn't JSON
+                 return { success: false, message: `Cancellation failed: Status ${response.status}` };
+            }
+        }
+
+        // Check if the response indicates logical success, even if status was 200
+        // ForeUp might return { success: false, msg: "..." } with a 200 status sometimes
+        if (!response.ok || responseData.success === false || responseData.error === true) {
+             const errorMsg = responseData.message || responseData.msg || responseData.error || `Cancellation failed with status ${response.status}`;
+             console.error("UTILS: Cancellation API reported failure:", errorMsg);
+             return { success: false, message: errorMsg };
+        }
+
+        // Assume success if response.ok and no explicit error in JSON
+        responseData.success = true; // Ensure success flag is set
+        return responseData;
+
+
+    } catch (error) {
+        console.error("UTILS: Network error during cancellation API call:", error);
+         // Return a structured error object
+         return { success: false, message: error.message || "Network error during cancellation." };
+    }
+}
+
 // --- END OF FILE utils.js ---
