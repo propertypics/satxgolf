@@ -426,7 +426,7 @@ async function handleReservationsRequest(request) {
 
         // 6. Extract the USER JSON object string using String Searching
         let userJsonString = null;
-        const startMarker = 'USER = {'; // **** IMPORTANT: Verify this exact string in ForeUp's source ****
+        const startMarker = 'USER = {'; 
         let startIndex = htmlText.indexOf(startMarker);
 
         // Optional: Try alternate common patterns if the first fails
