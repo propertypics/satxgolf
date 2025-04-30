@@ -95,12 +95,18 @@ async function handleRequest(request) {
     if (path === "/health" || path === "/") {
       return jsonResponse({ status: "ok", message: "ForeUp API Proxy is running", version: "1.0.6", debug: DEBUG });
     }
+    
+    if (path === "/api/reservations") {
+      return await handleReservationsRequest(request);
+      //get reservations from embedded json in course url
+    }
 
     return jsonResponse({ error: "Not Found", path: path }, 404);
   } catch (error) {
     console.error(`Error handling request: ${error.message}\nStack: ${error.stack}`);
     return errorResponse(`Server error: ${error.message}`);
   }
+
 }
 
 // Handle login requests to ForeUp
@@ -449,6 +455,171 @@ async function handleSaleDetailsRequest(request) {
     return errorResponse(`Failed to fetch sale details: ${error.message}`);
   }
 }
+
+/**
+ * Handles requests to fetch the user's reservation list.
+ * Fetches a single ForeUp booking page, extracts the embedded USER object,
+ * parses it, processes date/time fields, and returns the reservations array.
+ */
+async function handleReservationsRequest(request) {
+    debug("Worker: Handling /api/reservations request");
+
+    // 1. Check Method (Should be GET)
+    if (request.method !== "GET") {
+        return errorResponse("Method Not Allowed, use GET", 405);
+    }
+
+    // 2. Authenticate User
+    const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const cookies = request.headers.get("X-ForeUp-Cookies"); // Get cookies passed from frontend
+    if (!jwt) {
+        debug("Worker /api/reservations: Missing JWT");
+        return errorResponse("Authentication required", 401);
+    }
+    debug("Worker /api/reservations: Auth headers received.");
+
+    // 3. Define Target ForeUp Page URL (Using a default known course)
+    // Using Northern Hills as example - change if another is more reliable
+    const foreupBookingPageUrl = 'https://foreupsoftware.com/index.php/booking/20106/3567';
+    debug("Worker /api/reservations: Fetching ForeUp page:", foreupBookingPageUrl);
+
+    // 4. Construct Headers for ForeUp Request
+    const headers = {
+        // Request HTML, act like a browser
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'accept-language': 'en-US,en;q=0.9',
+        'Cookie': cookies || '', // Pass browser cookies
+        'Referer': 'https://foreupsoftware.com/', // Generic referer
+        'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)', // Identify self
+        'x-authorization': `Bearer ${jwt}`, // Pass JWT auth
+        // Add other headers if testing shows they are needed
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'same-origin', // Assuming worker calls from same logical origin context via proxy pass-through
+        'upgrade-insecure-requests': '1'
+    };
+    debug("Worker /api/reservations: Headers for ForeUp fetch:", headers);
+
+
+    try {
+        // 5. Fetch the HTML page content
+        const response = await fetch(foreupBookingPageUrl, { headers: headers });
+        debug(`Worker /api/reservations: ForeUp page fetch status: ${response.status}`);
+
+        if (!response.ok) {
+            // Log error details if possible
+            const errorText = await response.text();
+            console.error(`Worker /api/reservations: Failed ForeUp page fetch. Status: ${response.status}. Response: ${errorText.substring(0,500)}`);
+            throw new Error(`Failed to fetch user data page: Status ${response.status}`);
+        }
+        const htmlText = await response.text();
+        debug("Worker /api/reservations: Fetched HTML successfully (length):", htmlText.length);
+
+
+        // 6. Extract the USER JSON object string using Regex
+        let userJsonString = null;
+        // Regex to find "USER = {" (potentially with var/window prefix) and capture the object until its logical end (handling nested braces)
+        // It looks for USER = { ... } optionally followed by a semicolon, then whitespace, then often </script> or var or window.
+        const regex = /\bUSER\s*=\s*({(?:[^{}]|{[^{}]*})*});?\s*(?:var |window\.|\<\/script\>)/i;
+        const match = htmlText.match(regex);
+
+        if (match && match[1]) {
+             userJsonString = match[1];
+             debug("Worker /api/reservations: Extracted USER JSON string (first 300):", userJsonString.substring(0, 300)+"...");
+        } else {
+            console.error("Worker /api/reservations: Could not find 'USER = {...}' block using regex.");
+            // Optional: Fallback string search if regex fails?
+            // const startIndex = htmlText.indexOf('USER = {');
+            // if (startIndex > -1) { /* ... try manual extraction ... */ }
+            throw new Error("Could not extract reservation data structure from page source.");
+        }
+
+        // 7. Parse the JSON string
+        let userData;
+        try {
+             userData = JSON.parse(userJsonString);
+             debug("Worker /api/reservations: Successfully parsed USER object.");
+        } catch(e) {
+             console.error("Worker /api/reservations: Failed to parse extracted JSON string:", e);
+             debug("Worker /api/reservations: Extracted string that failed:", userJsonString.substring(0, 1000)); // Log more if parse fails
+             throw new Error("Failed to parse reservation data.");
+        }
+
+        // 8. Extract, Process, and Return the reservations array
+        if (userData && Array.isArray(userData.reservations)) {
+            debug(`Worker /api/reservations: Found ${userData.reservations.length} reservations in USER object.`);
+
+             const processedReservations = userData.reservations.map((res, index) => {
+                 let teeTimestamp = null;
+                 let displayDate = 'Invalid Date'; // Default display
+                 let displayTime = 'Invalid Time';
+                 let isoDateTime = null; // Store standardized string
+
+                 const startTimeStr = res.start; // e.g., "202504061220"
+
+                 if (startTimeStr && typeof startTimeStr === 'string' && startTimeStr.length === 12) {
+                     // Format YYYYMMDDHHMM
+                     const year = parseInt(startTimeStr.substring(0, 4), 10);
+                     const month = parseInt(startTimeStr.substring(4, 6), 10); // 01-12
+                     const day = parseInt(startTimeStr.substring(6, 8), 10);
+                     const hour = parseInt(startTimeStr.substring(8, 10), 10);
+                     const minute = parseInt(startTimeStr.substring(10, 12), 10);
+
+                     // ** Timezone Handling - CRITICAL **
+                     // ForeUp likely stores this in the COURSE'S local time. We need to parse it correctly.
+                     // Assuming the course is in Central Time (America/Chicago) for San Antonio.
+                     // Constructing a Date object requires care. Easiest might be to just store parts.
+                     // Or, use a library if available, or manually construct ISO string FOR A SPECIFIC TIMEZONE.
+                     // For now, let's just store the parts and format simply.
+                     // A robust solution would involve knowing the exact timezone.
+                     // Let's try creating a date assuming it's LOCAL time for display purposes only here.
+                     // WARNING: This assumes the SERVER running the worker is in a timezone where this date/time makes sense,
+                     // or that the JS Date constructor interprets it as local, which can be unreliable.
+                     // A better approach might be to send YYYY,MM,DD,HH,MM back to client for client-side formatting.
+
+                     isoDateTime = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`; // Store basic local time string
+
+                     try {
+                          // Try creating a local date object for formatting (might be off by timezone)
+                          const dLocal = new Date(year, month - 1, day, hour, minute); // Month is 0-indexed
+                          if (!isNaN(dLocal.getTime())) {
+                              teeTimestamp = dLocal.getTime(); // Timestamp based on *server's* local interpretation
+                              displayDate = dLocal.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                              displayTime = dLocal.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                              // Log the first one for checking
+                              if (index === 0) debug("Worker /api/reservations: Parsed date/time (local assumption):", { input: startTimeStr, dateObj: dLocal, displayDate, displayTime });
+                          } else {
+                               if (index === 0) debug("Worker /api/reservations: Invalid date from parts:", {year, month, day, hour, minute});
+                          }
+                     } catch (e) { console.warn("Worker /api/reservations: Error creating date object:", e); }
+                 } else {
+                     console.warn("Worker /api/reservations: Invalid 'start' field format:", startTimeStr);
+                 }
+
+                 // Return original reservation data + processed fields
+                 return {
+                     ...res,
+                     teeTimestamp: teeTimestamp, // Milliseconds (potentially based on server's local TZ)
+                     displayDate: displayDate,   // Formatted Date (potentially based on server's local TZ)
+                     displayTime: displayTime,   // Formatted Time (potentially based on server's local TZ)
+                     isoDateTime: isoDateTime     // Basic YYYY-MM-DD HH:MM string
+                 };
+            }); // End map
+
+            // Return the array with added date/time fields
+            return jsonResponse(processedReservations);
+
+        } else {
+            debug("Worker /api/reservations: 'reservations' array not found or not an array.");
+            return jsonResponse([]); // Return empty array if no reservations found
+        }
+
+    } catch (error) {
+        debug(`Worker /api/reservations: Error handling request: ${error.message}`, { stack: error.stack });
+        return errorResponse(`Failed to fetch reservations: ${error.message}`);
+    }
+}
+
 
 
 
