@@ -607,7 +607,6 @@ async function initializeFinancialsSection() {
              });
         }
     }
-} // End of initializeFinancialsSection
 
 
 // --- Function to clear cache (called from logout) ---
