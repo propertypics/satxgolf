@@ -491,43 +491,64 @@ async function handleReservationsRequest(request) {
         if (userData && Array.isArray(userData.reservations)) {
             reservations = userData.reservations;
             debug(`Worker /api/reservations: Extracted ${reservations.length} reservations.`);
+        if (userData && Array.isArray(userData.reservations)) {
+            reservations = userData.reservations;
+            debug(`Worker /api/reservations: Extracted ${reservations.length} reservations.`);
 
-            // Process dates/times within the extracted array
+            // ---vvv--- REPLACE THIS .map() CALLBACK ---vvv---
             reservations = reservations.map((res) => {
-                 let teeTimestamp = null; let displayDate = 'Invalid Date'; let displayTime = 'Invalid Time'; let isoDateTime = null;
-                 const startTimeStr = res.start; // e.g., "202504061220"
+                 let teeTimestamp = null;
+                 let displayDate = 'Invalid Date';
+                 let displayTime = 'Invalid Time';
+                 let isoDateTime = null; // Store standardized string
 
-                 if (startTimeStr && typeof startTimeStr === 'string' && startTimeStr.length === 12) {
-                     try { // Wrap date parsing in try-catch per item
-                         const year = parseInt(startTimeStr.substring(0, 4), 10);
-                         const month = parseInt(startTimeStr.substring(4, 6), 10); // 01-12
-                         const day = parseInt(startTimeStr.substring(6, 8), 10);
-                         const hour = parseInt(startTimeStr.substring(8, 10), 10);
-                         const minute = parseInt(startTimeStr.substring(10, 12), 10);
+                 // **** USE res.time ("YYYY-MM-DD HH:MM") ****
+                 const timeStr = res.time;
 
-                         // Basic ISO-like string (without timezone assumption)
-                         isoDateTime = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
+                 if (timeStr && typeof timeStr === 'string') {
+                     // Store the basic string format
+                     isoDateTime = timeStr.includes('T') ? timeStr : timeStr.replace(' ', 'T');
 
-                         // Create Date object - *ASSUMES* these parts represent local time at course
-                         // JS Date constructor handles month as 0-indexed
-                         const dLocal = new Date(year, month - 1, day, hour, minute);
-
-                         if (!isNaN(dLocal.getTime())) {
-                             teeTimestamp = dLocal.getTime();
-                             // Use formatDate from utils.js if available and preferred for consistency
-                              const formatDateFunc = typeof formatDate === 'function' ? formatDate : (dStr) => { try { return new Date(dStr).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }); } catch {return 'N/A';} };
-                              displayDate = formatDateFunc(dLocal); // Format the date object
-                              displayTime = dLocal.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                         } else {
-                              console.warn(`Worker /api/reservations: Invalid date constructed for start: ${startTimeStr}`);
+                     try {
+                         // Parse "YYYY-MM-DD HH:MM" using components for local interpretation
+                         const parts = timeStr.split(' ');
+                         let parsedDate = null;
+                         if (parts.length === 2) {
+                             const dateParts = parts[0].split('-'); // ["YYYY", "MM", "DD"]
+                             const timeParts = parts[1].split(':'); // ["HH", "MM"]
+                             if (dateParts.length === 3 && timeParts.length === 2) {
+                                 const year = parseInt(dateParts[0], 10);
+                                 const month = parseInt(dateParts[1], 10); // 1-12
+                                 const day = parseInt(dateParts[2], 10);
+                                 const hour = parseInt(timeParts[0], 10);
+                                 const minute = parseInt(timeParts[1], 10);
+                                 // Create date object using local timezone interpretation (month is 0-indexed)
+                                 parsedDate = new Date(year, month - 1, day, hour, minute);
+                             }
                          }
-                     } catch (e) { console.warn(`Worker /api/reservations: Error parsing date components for start: ${startTimeStr}`, e); }
+
+                         if (parsedDate && !isNaN(parsedDate.getTime())) {
+                             teeTimestamp = parsedDate.getTime(); // Get timestamp
+                             // Use shared formatDate if available, otherwise basic format
+                             const formatDateFunc = typeof formatDate === 'function' ? formatDate : (dStr) => { try { return new Date(dStr).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }); } catch { return 'N/A'; } };
+                             displayDate = formatDateFunc(parsedDate);
+                             displayTime = parsedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                             debug(`Worker /api/reservations: Parsed time "${timeStr}" -> ${displayDate} ${displayTime} (Timestamp: ${teeTimestamp})`);
+                         } else {
+                              console.warn(`Worker /api/reservations: Could not parse valid date from 'time' field: ${timeStr}`);
+                              isoDateTime = null; // Clear if parsing failed
+                         }
+                     } catch (e) {
+                          console.warn(`Worker /api/reservations: Error parsing 'time' field: ${timeStr}`, e);
+                          isoDateTime = null; // Clear on error
+                     }
                  } else {
-                     console.warn(`Worker /api/reservations: Invalid or missing 'start' field format for reservation:`, res.TTID || res.teetime_id);
+                     console.warn(`Worker /api/reservations: Invalid or missing 'time' field for reservation:`, res.TTID || res.teetime_id);
                  }
-                 // Return object with processed date/time fields added
+                 // Return object with original data + processed date/time fields
+                 // Ensure all needed original fields (like TTID, course_name etc.) are kept by ...res
                  return { ...res, teeTimestamp, displayDate, displayTime, isoDateTime };
-            }); // End map
+            }); // ---^^^--- END OF REPLACEMENT for .map() CALLBACK ---^^^---
 
         } else {
             debug("Worker /api/reservations: 'reservations' array not found or not an array in USER object.");
@@ -537,6 +558,7 @@ async function handleReservationsRequest(request) {
         return jsonResponse(reservations);
 
     } catch (error) {
+
         // Catch errors from fetch, extraction, parsing etc.
         debug(`Worker /api/reservations: Error handling request: ${error.message}`, { stack: error.stack });
         return errorResponse(`Failed to fetch reservations: ${error.message}`);
