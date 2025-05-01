@@ -41,44 +41,62 @@
             </div>
         </div>
     </header>
-    
-    <main class="container">
-        <h2 class="section-title">My Golf Stats</h2>
-        
-        <div class="loading" id="loadingIndicator">
-            <div class="spinner"></div>
-            <p>Loading your stats...</p>
-        </div>
-        
-        <div class="stats-container" id="statsContainer" style="display: none;">
-            <div class="stats-card">
-                <h3>Membership Info</h3>
-                <div id="membershipInfo"></div>
-            </div>
-            
-            <div class="stats-card" id="punchCard">
-                <h3>Punch Card Usage</h3>
-                <div id="punchInfo"></div>
-            </div>
-            
-            <div class="stats-card">
-                <h3>Recent Activity</h3>
-                <div id="recentActivity"></div>
-            </div>
 
-	    <div class="stats-card">   
-    	         <h3>Financial Summary</h3>           <!-- Title for the section -->
-    	         <div id="financialSummary">
-        <p>Loading financial summary...</p> <!-- Initial loading message -->
-       
-     
-             <div class="stats-card">
-    		<h3>Upcoming Reservations</h3>
-    		<div id="upcomingReservations">
-        	<p>Loading reservations...</p> <!-- Initial loading message -->
-    	     </div>
-</div>
+<main class="container">
+    <h2 class="section-title">My Golf Stats</h2>
+
+    <div class="loading" id="loadingIndicator">
+        <div class="spinner"></div>
+        <p>Loading your stats...</p>
     </div>
+
+    <div class="stats-container" id="statsContainer" style="display: none;">
+
+        <!-- Card 1: Membership -->
+        <div class="stats-card">
+            <h3>Membership Info</h3>
+            <div id="membershipInfo"></div>
+        </div>
+
+        <!-- Card 2: Punch Card -->
+        <div class="stats-card" id="punchCard">
+            <h3>Punch Card Usage</h3>
+            <div id="punchInfo"></div>
+        </div>
+
+        <!-- Card 3: Recent Activity -->
+        <div class="stats-card">
+            <h3>Recent Activity</h3>
+            <div id="recentActivity"></div>
+        </div>
+
+        <!-- Card 4: Financial Summary -->
+        <div class="stats-card">
+            <h3>Financial Summary</h3>
+            <div id="financialSummary">
+                <p>Loading financial summary...</p>
+            </div>
+            <button id="exportCsvBtn" class="secondary-btn" style="display: none; margin-top: 15px;">
+                Export Full History (CSV)
+            </button>
+            <button id="refreshFinancialsBtn" class="secondary-btn" style="margin-top: 15px; margin-left: 10px;">
+                Refresh Financials
+            </button>
+        </div>
+        <!-- End Financial Card -->
+
+        <!-- Card 5: Upcoming Reservations -->
+        <div class="stats-card">                   <!-- Sibling Card -->
+            <h3>Upcoming Reservations</h3>
+            <div id="upcomingReservations">
+                <p>Loading reservations...</p>     <!-- Initial loading message -->
+            </div>
+        </div>
+        <!-- End Upcoming Reservations Card -->
+
+    </div> <!-- End statsContainer -->
+
+
 
     <!-- Export button, initially hidden, shown after data loads -->
     <button id="exportCsvBtn" class="secondary-btn" style="display: none; margin-top: 15px;">
