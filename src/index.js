@@ -1,5 +1,6 @@
+// --- START OF FILE index.js (Cloudflare Worker) ---
 
-// ForeUp API Proxy - Cloudflare Worker (Version 1.0.8 - All Features)
+// ForeUp API Proxy - Cloudflare Worker (Version 1.0.9 - All Features Corrected)
 // Handles API requests to the ForeUp system, avoiding CORS issues
 
 // Define DEBUG mode
@@ -11,9 +12,8 @@ function debug(message, data) {
     const timestamp = new Date().toISOString();
     if (data !== undefined) {
       console.log(`[${timestamp}] [DEBUG] ${message}`);
-      // Use console.log for primitive types, console.dir for objects/arrays
       if (typeof data === 'object' && data !== null) {
-           console.dir(data, { depth: 3 }); // Limit depth for cleaner logs
+           console.dir(data, { depth: 3 });
       } else {
            console.log(data);
       }
@@ -26,7 +26,7 @@ function debug(message, data) {
 // Define CORS headers for all responses
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*", // Replace with your domain in production
-  "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS, DELETE", // Allow needed methods
+  "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS, DELETE", // Allow necessary methods
   "Access-Control-Allow-Headers": "Content-Type, Authorization, api-key, x-fu-golfer-location, x-requested-with, X-ForeUp-Cookies, x-authorization, priority, origin, referer",
   "Access-Control-Max-Age": "86400",
 };
@@ -34,19 +34,16 @@ const corsHeaders = {
 // Handle OPTIONS requests (CORS preflight)
 function handleOptions(request) {
   debug("Handling OPTIONS request", request.url);
-  // Ensure necessary headers and methods are allowed
   return new Response(null, {
     headers: corsHeaders,
     status: 204, // No Content
   });
 }
 
-
 // Create a standard JSON response with CORS
 function jsonResponse(data, status = 200) {
   debug(`Creating JSON response with status ${status}`);
-  // Add debug data itself for inspection if needed
-  // debug("Response data:", data);
+  // debug("Response data:", data); // Uncomment for detailed response logging
   try {
       return new Response(JSON.stringify(data), {
           status: status,
@@ -54,7 +51,7 @@ function jsonResponse(data, status = 200) {
       });
   } catch (stringifyError) {
       console.error("Worker: Failed to stringify JSON response:", stringifyError);
-      // Return a plain text error if stringify fails
+      // Return a basic error structure if stringify fails
       return new Response(`{"error":true,"success":false,"message":"Internal Server Error: Failed to serialize response."}`, {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -65,6 +62,7 @@ function jsonResponse(data, status = 200) {
 // Create an error response with CORS
 function errorResponse(message, status = 500) {
   debug(`Creating error response: ${message}, status: ${status}`);
+  // Always include success: false for errors
   return jsonResponse({ error: true, success: false, message: message }, status);
 }
 
@@ -80,7 +78,7 @@ async function handleRequest(request) {
 
   debug(`Received ${request.method} request to ${path}`, {
     url: request.url,
-    headers: Object.fromEntries(request.headers.entries()) // Log incoming headers
+    headers: Object.fromEntries(request.headers.entries())
   });
 
   // 2. Route other requests
@@ -110,11 +108,11 @@ async function handleRequest(request) {
       return await handleCancelReservationRequest(request);
     }
     if (path === "/health" || path === "/") {
-      return jsonResponse({ status: "ok", message: "ForeUp API Proxy is running", version: "1.0.8", debug: DEBUG });
+      return jsonResponse({ status: "ok", message: "ForeUp API Proxy is running", version: "1.0.9", debug: DEBUG }); // Updated version
     }
 
     // Fallback 404 for unknown paths
-    return jsonResponse({ error: "Not Found", path: path }, 404);
+    return jsonResponse({ error: true, success: false, message: `Not Found: ${path}` }, 404);
 
   } catch (error) {
     // Catch any uncaught errors during request handling
@@ -140,16 +138,11 @@ async function handleLoginRequest(request) {
 
     const loginUrl = "https://foreupsoftware.com/index.php/api/booking/users/login";
     const formData = new URLSearchParams({
-        username: requestData.username,
-        password: requestData.password,
-        booking_class_id: "",
-        api_key: "no_limits",
-        course_id: "20106" // Default course ID
+        username: requestData.username, password: requestData.password,
+        booking_class_id: "", api_key: "no_limits", course_id: "20106"
     });
-
     const headers = {
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "Accept": "application/json, text/javascript, */*; q=0.01",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "Accept": "application/json, text/javascript, */*; q=0.01",
       "api-key": "no_limits", "x-fu-golfer-location": "foreup", "x-requested-with": "XMLHttpRequest",
       "Origin": "https://foreupsoftware.com", "Referer": "https://foreupsoftware.com/index.php/booking/",
       "User-Agent": "Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)"
@@ -161,15 +154,14 @@ async function handleLoginRequest(request) {
 
     const cookies = response.headers.get('set-cookie');
     const responseText = await response.text();
-
     let data;
     try {
       if (!responseText?.trim()) throw new Error("Empty response");
       data = JSON.parse(responseText);
-      if (cookies) data.cookies = cookies; // Add cookies for frontend
+      if (cookies) data.cookies = cookies;
     } catch (error) {
       debug(`Worker /api/login: Error parsing JSON: ${error.message}`, { responseText: responseText.substring(0,500) });
-      return errorResponse(`Invalid JSON response from ForeUp Login API`, 502);
+      return errorResponse(`Invalid JSON response from ForeUp Login API`, response.status >= 400 ? response.status : 502);
     }
     return jsonResponse(data, response.status);
   } catch (error) {
@@ -225,7 +217,7 @@ async function handleTeeTimesRequest(request) {
 async function handleCoursesRequest(request) {
   debug("Worker: Handling /api/courses request");
    try {
-      const courses = getSanAntonioCourses();
+      const courses = getSanAntonioCourses(); // Call the function below
       if (!Array.isArray(courses)) { throw new Error("Course data source invalid."); }
       debug("Worker /api/courses: Returning course list.", courses);
       return jsonResponse(courses);
@@ -268,7 +260,7 @@ async function handlePendingReservationRequest(request) {
       const responseData = JSON.parse(responseText);
       return jsonResponse(responseData, response.status);
     } catch (error) {
-      debug("Worker /api/pending-reservation: Error parsing JSON", error);
+      debug("Worker /api/pending-reservation: Error parsing JSON", { error, responseText: responseText.substring(0,500) });
       return errorResponse("Invalid JSON response from ForeUp Pending Reservation API", 502);
     }
   } catch (error) {
@@ -299,10 +291,11 @@ async function handleCompleteReservationRequest(request) {
       "api-key": "no_limits", "x-fu-golfer-location": "foreup", "x-requested-with": "XMLHttpRequest",
       "x-authorization": `Bearer ${jwt}`, "Origin": "https://foreupsoftware.com",
       "Referer": "https://foreupsoftware.com/index.php/booking/", "User-Agent": "Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)"
+      // Add other sec-* headers if needed
     };
     if (cookies) headers["Cookie"] = cookies;
 
-    debug("Worker /api/complete-reservation: Sending request to ForeUp", { url: reservationUrl, body: requestData });
+    debug("Worker /api/complete-reservation: Sending request to ForeUp", { url: reservationUrl }); // Don't log full body PII
     const response = await fetch(reservationUrl, { method: "POST", headers: headers, body: JSON.stringify(requestData) });
     debug(`Worker /api/complete-reservation: ForeUp response status: ${response.status}`);
 
@@ -350,19 +343,18 @@ async function handleSaleDetailsRequest(request) {
           'accept': 'application/json, text/javascript, */*; q=0.01', 'api-key': 'no_limits', 'Cookie': cookies || '',
           'Referer': `https://foreupsoftware.com/index.php/booking/${saleInfo.courseId}/`, 'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
           'x-authorization': `Bearer ${jwt}`, 'x-fu-golfer-location': 'foreup', 'x-requested-with': 'XMLHttpRequest'
-          // Add optional headers if needed: 'accept-language', 'dnt', 'priority', 'origin', 'sec-fetch-*'
+          // Add optional headers if needed
       };
       try {
-        // debug(`Worker /api/sale-details: Fetching ${saleDetailUrl}`); // Can be very verbose
         const response = await fetch(saleDetailUrl, { headers: headers });
         if (!response.ok) { const errorText = await response.text(); console.error(`Worker /api/sale-details: Failed fetch for ${saleInfo.saleId}. Status: ${response.status}. Resp: ${errorText.substring(0, 500)}`); return; }
         const saleData = await response.json();
-        // Add the courseId used for the request back into the response meta for frontend use
+        // Add courseId back for frontend context
         if (!saleData.meta) saleData.meta = {};
         saleData.meta.app_requested_course_id = saleInfo.courseId;
         detailedSales.push(saleData);
       } catch (fetchError) { console.error(`Worker /api/sale-details: Network/parsing error fetching sale ${saleInfo.saleId}:`, fetchError); }
-    }));
+    })); // End Promise.all
 
     debug(`Worker /api/sale-details: Successfully fetched details for ${detailedSales.length} sales.`);
     return jsonResponse(detailedSales);
@@ -372,350 +364,172 @@ async function handleSaleDetailsRequest(request) {
   }
 }
 
-
 /**
- * Handles requests to fetch the user's reservation list.
- * Fetches a single ForeUp booking page, finds and extracts the embedded USER object JSON string,
- * parses it, processes date/time fields within the reservations array, and returns the processed array.
+ * Handles fetching the user's reservation list by scraping USER object.
  */
 async function handleReservationsRequest(request) {
     debug("Worker: Handling /api/reservations request");
-
-    // 1. Check Method
-    if (request.method !== "GET") {
-        return errorResponse("Method Not Allowed, use GET", 405);
-    }
-
-    // 2. Authenticate User
+    if (request.method !== "GET") return errorResponse("Method Not Allowed", 405);
     const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
     const cookies = request.headers.get("X-ForeUp-Cookies");
-    if (!jwt) {
-        debug("Worker /api/reservations: Missing JWT");
-        return errorResponse("Authentication required", 401);
-    }
-    debug("Worker /api/reservations: Auth headers received.");
+    if (!jwt) return errorResponse("Authentication required", 401);
 
-    // 3. Define Target ForeUp Page URL (Using a default known course)
-    const foreupBookingPageUrl = 'https://foreupsoftware.com/index.php/booking/20106/3567'; // Northern Hills example
+    const foreupBookingPageUrl = 'https://foreupsoftware.com/index.php/booking/20106/3567'; // Default page
     debug("Worker /api/reservations: Fetching ForeUp page:", foreupBookingPageUrl);
-
-    // 4. Construct Headers for ForeUp Request
     const headers = {
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'accept-language': 'en-US,en;q=0.9',
-        'Cookie': cookies || '',
-        'Referer': 'https://foreupsoftware.com/',
-        'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
-        'x-authorization': `Bearer ${jwt}`,
-        // Add other headers like sec-* if testing shows they are vital
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Cookie': cookies || '',
+        'Referer': 'https://foreupsoftware.com/', 'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
+        'x-authorization': `Bearer ${jwt}` // Include JWT
+        // Add other sec-* headers if testing shows issues
     };
-    debug("Worker /api/reservations: Headers for ForeUp fetch:", headers);
 
     try {
-        // 5. Fetch the HTML page content
         const response = await fetch(foreupBookingPageUrl, { headers: headers });
         debug(`Worker /api/reservations: ForeUp page fetch status: ${response.status}`);
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Worker /api/reservations: Failed ForeUp page fetch. Status: ${response.status}. Response: ${errorText.substring(0,500)}`);
-            throw new Error(`Failed to fetch user data page: Status ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Failed to fetch user data page: Status ${response.status}`);
         const htmlText = await response.text();
         debug("Worker /api/reservations: Fetched HTML length:", htmlText.length);
-        // debug("Worker /api/reservations: Fetched HTML start:", htmlText.substring(0, 5000)); // Optional: Log large chunk if needed
 
-        // 6. Extract the USER JSON object string using String Searching
+        // Extract the USER JSON object string using String Searching
         let userJsonString = null;
-        let startMarker = 'USER = {'; 
+        let startMarker = 'USER = {'; // Base marker
         let startIndex = htmlText.indexOf(startMarker);
-
-        // Optional: Try alternate common patterns if the first fails
+        // Try alternate markers if base fails
         if (startIndex === -1) {
-             const altMarkers = ['var USER = {', 'window.USER = {', ' USER = {']; // Note leading space
+             const altMarkers = ['var USER = {', 'window.USER = {', ' USER = {'];
              for (const marker of altMarkers) {
                  startIndex = htmlText.indexOf(marker);
-                 if (startIndex !== -1) {
-                     debug("Worker /api/reservations: Found user data with marker:", marker);
-                     startMarker = marker; // Update marker if found
-                     break;
-                 }
+                 if (startIndex !== -1) { debug("Worker /api/reservations: Found user data with marker:", marker); startMarker = marker; break; }
              }
         }
+        if (startIndex === -1) { throw new Error(`Could not find start of USER data ('USER = {', 'var USER = {', etc.).`); }
 
-        if (startIndex === -1) {
-            debug("Worker /api/reservations: Start marker ('USER = {', 'var USER = {', etc.) not found in HTML.");
-            throw new Error("Could not find start of USER data in page source.");
-        } else {
-            debug("Worker /api/reservations: Found start marker at index:", startIndex);
-            // Find the corresponding closing brace using brace counting
-            let braceCount = 1;
-            let endIndex = startIndex + startMarker.length; // Start searching right after the opening '{'
-            while (endIndex < htmlText.length && braceCount > 0) {
-                const char = htmlText[endIndex];
-                if (char === '{') {
-                    braceCount++;
-                } else if (char === '}') {
-                    braceCount--;
-                }
-                endIndex++;
-                 // Safety break - adjust limit if USER object is extremely large
-                if (endIndex > startIndex + 1000000) { // Limit search to 1MB past start
-                     console.error("Worker /api/reservations: Brace counting exceeded safety limit.");
-                     throw new Error("Could not find matching closing brace within reasonable limit.");
-                }
-            }
-
-            if (braceCount === 0) {
-                // Found the matching closing brace (which is at endIndex - 1)
-                userJsonString = htmlText.substring(startIndex + startMarker.length - 1, endIndex); // Extract { ... }
-                debug("Worker /api/reservations: Extracted USER JSON string (first 300 chars):", userJsonString.substring(0, 300)+"...");
-            } else {
-                debug("Worker /api/reservations: Could not find matching closing brace for USER object.");
-                throw new Error("Could not accurately extract reservation data structure (unbalanced braces?).");
-            }
+        debug("Worker /api/reservations: Found start marker at index:", startIndex);
+        let braceCount = 1;
+        let endIndex = startIndex + startMarker.length; // Start search right after the opening '{'
+        while (endIndex < htmlText.length && braceCount > 0) {
+            const char = htmlText[endIndex];
+            if (char === '{') { braceCount++; } else if (char === '}') { braceCount--; }
+            endIndex++;
+            if (endIndex > startIndex + 1000000) { throw new Error("Could not find matching closing brace within limit."); }
         }
+        if (braceCount !== 0) { throw new Error("Could not extract structure (unbalanced braces?)."); }
+        userJsonString = htmlText.substring(startIndex + startMarker.length - 1, endIndex); // Extract { ... }
+        debug("Worker /api/reservations: Extracted USER JSON string (first 300):", userJsonString.substring(0, 300)+"...");
 
-        // 7. Parse the JSON string
+        // Parse the JSON string
         let userData;
-        try {
-             userData = JSON.parse(userJsonString);
-             debug("Worker /api/reservations: Successfully parsed USER object.");
-        } catch(e) {
-             console.error("Worker /api/reservations: Failed to parse extracted JSON string:", e);
-             debug("Worker /api/reservations: Extracted string that failed (first 1000):", userJsonString.substring(0, 1000));
-             throw new Error(`Failed to parse reservation data: ${e.message}`);
-        }
+        try { userData = JSON.parse(userJsonString); debug("Worker /api/reservations: Successfully parsed USER object."); }
+        catch(e) { throw new Error(`Failed to parse reservation data: ${e.message}`); }
 
-        // 8. Extract, Process Dates, and Return the reservations array
-        let reservations = []; // Default to empty array
-        if (userData && Array.isArray(userData.reservations)) {
-            reservations = userData.reservations;
-            debug(`Worker /api/reservations: Extracted ${reservations.length} reservations.`);
+        // Extract, Process Dates, and Return the reservations array
+        let reservations = [];
         if (userData && Array.isArray(userData.reservations)) {
             reservations = userData.reservations;
             debug(`Worker /api/reservations: Extracted ${reservations.length} reservations.`);
 
-            // ---vvv--- REPLACE THIS .map() CALLBACK ---vvv---
-  // Process dates/times within the extracted array
-            const processedReservations = reservations.map((res) => {
-                 let teeTimestamp = null;
-                 let displayDate = 'Invalid Date';
-                 let displayTime = 'Invalid Time';
-                 let isoDateTime = null; // Store basic YYYY-MM-DD HH:MM string
-
-                 // **** GET THE CORRECT time string ****
-                 const timeStr = res.time; // e.g., "2025-05-04 17:00"
-
+            reservations = reservations.map((res) => { // Use implicit return for map if desired, or keep explicit
+                 let teeTimestamp = null; let displayDate = 'Invalid Date'; let displayTime = 'Invalid Time'; let isoDateTime = null;
+                 const timeStr = res.time; // Use the correct time field
                  if (timeStr && typeof timeStr === 'string') {
-                     // Basic cleanup/format attempt
-                     isoDateTime = timeStr.replace('T', ' ').split('.')[0]; // Remove T and milliseconds if present
-
+                     isoDateTime = timeStr.includes('T') ? timeStr : timeStr.replace(' ', 'T');
                      try {
-                         // ---vvv--- PARSE COMPONENTS EXPLICITLY FROM timeStr ---vvv---
-                         const parts = timeStr.split(' '); // ["YYYY-MM-DD", "HH:MM"]
-                         let parsedDate = null;
+                         const parts = timeStr.split(' '); let parsedDate = null;
                          if (parts.length === 2) {
-                             const dateParts = parts[0].split('-'); // ["YYYY", "MM", "DD"]
-                             const timeParts = parts[1].split(':'); // ["HH", "MM"]
+                             const dateParts = parts[0].split('-'); const timeParts = parts[1].split(':');
                              if (dateParts.length === 3 && timeParts.length === 2) {
-                                 const year = parseInt(dateParts[0], 10);
-                                 const month = parseInt(dateParts[1], 10); // 1-12
-                                 const day = parseInt(dateParts[2], 10);
-                                 const hour = parseInt(timeParts[0], 10);
-                                 const minute = parseInt(timeParts[1], 10);
-
-                                 // Validate parsed components
+                                 const year = parseInt(dateParts[0], 10); const month = parseInt(dateParts[1], 10); const day = parseInt(dateParts[2], 10);
+                                 const hour = parseInt(timeParts[0], 10); const minute = parseInt(timeParts[1], 10);
                                  if (!isNaN(year) && !isNaN(month) && !isNaN(day) && !isNaN(hour) && !isNaN(minute)) {
-                                     // Create date object using components from timeStr (month is 0-indexed)
-                                     parsedDate = new Date(year, month - 1, day, hour, minute);
-
+                                     parsedDate = new Date(year, month - 1, day, hour, minute); // Month 0-indexed
                                      if (!isNaN(parsedDate.getTime())) {
-                                         // GENERATE TIMESTAMP FROM THIS CORRECT DATE OBJECT
                                          teeTimestamp = parsedDate.getTime();
-
-                                         // Format display strings using this correct date object
                                          // Use shared formatDate if available globally in worker context
-                                         const formatDateFunc = typeof formatDate === 'function' ? formatDate : (d) => d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                                         const formatDateFunc = typeof formatDate === 'function' ? formatDate : (d) => d.toLocaleDateString('en-US',{weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'});
                                          displayDate = formatDateFunc(parsedDate);
                                          displayTime = parsedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                                         debug(`Worker /api/reservations: Parsed time "${timeStr}" -> ${displayDate} ${displayTime} (Timestamp: ${teeTimestamp})`);
-                                     } else {
-                                         console.warn(`Worker /api/reservations: Constructed invalid date from 'time' field components: ${timeStr}`);
-                                         isoDateTime = timeStr; // Keep original if parsing failed badly
-                                     }
-                                 } else { console.warn(`Worker /api/reservations: Invalid date/time numeric components in 'time' field: ${timeStr}`); isoDateTime = timeStr; }
-                             } else { console.warn(`Worker /api/reservations: Invalid date/time parts in 'time' field: ${timeStr}`); isoDateTime = timeStr; }
-                         } else { console.warn(`Worker /api/reservations: Invalid format in 'time' field: ${timeStr}`); isoDateTime = timeStr; }
-                     } catch (e) {
-                          console.warn(`Worker /api/reservations: Error parsing 'time' field: ${timeStr}`, e);
-                          isoDateTime = timeStr; // Keep original on error
-                     }
-                 } else {
-                     console.warn(`Worker /api/reservations: Invalid or missing 'time' field for reservation:`, res.TTID || res.teetime_id);
-                 }
-                 // Return object with original data + processed date/time fields derived ONLY from res.time
-                 debug(`Worker /api/reservations: FINAL calculated values for TTID ${res.TTID || res.teetime_id}: timestamp=${teeTimestamp}, displayDate=${displayDate}, displayTime=${displayTime}`);
+                                     } else { console.warn(`Worker /api/reservations: Constructed invalid date from 'time': ${timeStr}`); isoDateTime = timeStr; }
+                                 } else { console.warn(`Worker /api/reservations: Invalid numeric components in 'time': ${timeStr}`); isoDateTime = timeStr; }
+                             } else { console.warn(`Worker /api/reservations: Invalid date/time parts in 'time': ${timeStr}`); isoDateTime = timeStr; }
+                         } else { console.warn(`Worker /api/reservations: Invalid format in 'time': ${timeStr}`); isoDateTime = timeStr; }
+                     } catch (e) { console.warn(`Worker /api/reservations: Error parsing 'time': ${timeStr}`, e); isoDateTime = timeStr; }
+                 } else { console.warn(`Worker /api/reservations: Invalid or missing 'time' field:`, res.TTID || res.teetime_id); }
                  return { ...res, teeTimestamp, displayDate, displayTime, isoDateTime };
-            }); // ---^^^--- END OF .map() CALLBACK ---^^^---
+            }); // End map
 
-        } else {
-            debug("Worker /api/reservations: 'reservations' array not found or not an array in USER object.");
-        }
-
-        // Return JUST the processed reservations array (or empty array)
-        return jsonResponse(reservations);
+        } else { debug("Worker /api/reservations: 'reservations' array not found."); }
+        return jsonResponse(reservations); // Return processed array
 
     } catch (error) {
-
-        // Catch errors from fetch, extraction, parsing etc.
-        debug(`Worker /api/reservations: Error handling request: ${error.message}`, { stack: error.stack });
+        debug(`Worker /api/reservations: Error: ${error.message}`, { stack: error.stack });
         return errorResponse(`Failed to fetch reservations: ${error.message}`);
     }
 }
 
 
-
 /**
  * Handles requests to cancel a specific reservation via ForeUp.
  */
-
-sync function handleCancelReservationRequest(request) {
+async function handleCancelReservationRequest(request) {
     debug("Worker: Handling /api/cancel-reservation request");
-
-    // Outer try block for the entire request handling
+    if (request.method !== "POST") return errorResponse("Method Not Allowed", 405);
     try {
-        // 1. Check Method
-        if (request.method !== "POST") {
-            return errorResponse("Method Not Allowed, use POST", 405);
-        }
-
-        // 2. Parse Body to get reservationId
         let requestData;
-        try {
-            requestData = await request.json();
-            debug("Worker /cancel-reservation: Received request body:", requestData);
-        } catch (error) {
-            debug("Worker /cancel-reservation: Invalid JSON body", error);
-            return errorResponse("Invalid JSON request body", 400);
-        }
+        try { requestData = await request.json(); debug("Worker /cancel-reservation: Received request body:", requestData); }
+        catch (error) { return errorResponse("Invalid JSON request body", 400); }
 
         const reservationId = requestData?.reservationId;
         if (!reservationId || typeof reservationId !== 'string' || !reservationId.startsWith('TTID_')) {
-            debug("Worker /cancel-reservation: Missing or invalid reservationId in body:", reservationId);
-            return errorResponse("Missing or invalid reservationId in request body", 400);
+             return errorResponse("Missing or invalid reservationId in request body", 400);
         }
-
-        // 3. Authenticate User
         const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
         const cookies = request.headers.get("X-ForeUp-Cookies");
-        if (!jwt) {
-            debug("Worker /cancel-reservation: Missing JWT");
-            return errorResponse("Authentication required", 401);
-        }
-        debug("Worker /cancel-reservation: Authentication headers received.");
+        if (!jwt) return errorResponse("Authentication required", 401);
 
-        // 4. Construct ForeUp DELETE URL
         const foreupCancelUrl = `https://foreupsoftware.com/index.php/api/booking/users/reservations/${reservationId}`;
         debug(`Worker /cancel-reservation: Target ForeUp URL for DELETE: ${foreupCancelUrl}`);
-
-        // 5. Construct Headers for ForeUp DELETE request
         const headers = {
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'accept-language': 'en-US,en;q=0.9',
-            'api-key': 'no_limits',
-            'Cookie': cookies || '',
-            'dnt': '1',
-            'origin': 'https://foreupsoftware.com',
-            'priority': 'u=1, i',
-            'referer': `https://foreupsoftware.com/index.php/booking/`, // Generic Referer
-            'sec-ch-ua': '"Chromium";v="133", "Not(A:Brand";v="99"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
-            'x-authorization': `Bearer ${jwt}`,
-            'x-fu-golfer-location': 'foreup',
-            'x-requested-with': 'XMLHttpRequest'
+            'accept': 'application/json, text/javascript, */*; q=0.01', 'api-key': 'no_limits',
+            'Cookie': cookies || '', 'Referer': `https://foreupsoftware.com/index.php/booking/`,
+            'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)', 'x-authorization': `Bearer ${jwt}`,
+            'x-fu-golfer-location': 'foreup', 'x-requested-with': 'XMLHttpRequest',
+            'origin': 'https://foreupsoftware.com'
+            // Add other optional headers if needed
         };
         debug("Worker /cancel-reservation: Headers for ForeUp DELETE:", headers);
 
-        // 6. Make the DELETE request to ForeUp
-        const response = await fetch(foreupCancelUrl, {
-            method: 'DELETE',
-            headers: headers
-        });
-        debug(`Worker /cancel-reservation: Received cancel response from ForeUp status: ${response.status}`);
+        const response = await fetch(foreupCancelUrl, { method: 'DELETE', headers: headers });
+        debug(`Worker /cancel-reservation: ForeUp response status: ${response.status}`);
 
-        // 7. Process ForeUp's Response & Respond to Frontend
-        let responseData = {};
-        let clientResponseStatus = response.status; // Use ForeUp's status initially
-        let success = false;
-
-        // Inner try...catch specifically for handling the response body parsing
-        try {
-            // Check for successful HTTP status codes (2xx range, including 204)
+        let responseData = {}; let clientResponseStatus = response.status; let success = false;
+        try { // Inner try for response processing
             if (response.ok || response.status === 204) {
-                 success = true;
-                 clientResponseStatus = 200; // Standardize client success response to 200
-                 debug("Worker /cancel-reservation: ForeUp DELETE successful (status OK/204).");
-
-                 // Try to parse response body even on success, ForeUp might send info
-                 try {
-                      const body = await response.json();
-                      responseData = { ...body, success: true }; // Merge and ensure flag
-                 } catch(e) {
-                      // If no body (like 204) or not JSON, create a simple success message
-                      responseData = { success: true, message: "Reservation cancelled successfully." };
-                 }
+                 success = true; clientResponseStatus = 200;
+                 try { responseData = { ...await response.json(), success: true }; }
+                 catch(e) { responseData = { success: true, message: "Reservation cancelled." }; }
             } else {
-                 // Handle ForeUp error status codes (4xx, 5xx)
-                 success = false;
-                 console.error(`Worker /cancel-reservation: ForeUp DELETE failed. Status: ${response.status}`);
-                 // Initialize error response structure
+                 success = false; clientResponseStatus = response.status;
                  responseData = { success: false, message: `ForeUp rejected cancellation (Status ${response.status})`};
-                 try {
-                      // Try to get a more specific error message from ForeUp's JSON response body
-                      const errBody = await response.json();
-                      responseData.message = errBody.message || errBody.error || responseData.message;
-                      responseData.foreup_response = errBody; // Include original error for debugging
-                 } catch(e) {
-                      // If error body isn't JSON, try to get text
-                      try {
-                          const errText = await response.text();
-                          responseData.message += ` - ${errText.substring(0,100)}`; // Add snippet of text response
-                          responseData.foreup_raw_response = errText.substring(0, 500);
-                      } catch (readErr) { /* Ignore if can't even read text */ }
-                 }
+                 try { const errBody = await response.json(); responseData.message = errBody.message || errBody.error || responseData.message; responseData.foreup_response = errBody; }
+                 catch(e) { try { const errText = await response.text(); responseData.message += ` - ${errText.substring(0,100)}`; responseData.foreup_raw_response = errText.substring(0, 500); } catch (readErr) {} }
                  console.error("Worker /cancel-reservation: ForeUp cancellation failed details:", responseData);
-                 // Keep ForeUp's original error status for the client response
-                 clientResponseStatus = response.status;
             }
-        // Catch errors occurring during the response body processing (e.g., JSON.parse errors)
         } catch (processingError) {
-             console.error("Worker /cancel-reservation: Error processing ForeUp response body:", processingError);
-             // Base success on original HTTP status if processing failed
-             success = response.ok || response.status === 204;
-             clientResponseStatus = success ? 200 : (response.status || 500); // Use original status or default to 500
-             responseData = {
-                 success: success,
-                 message: success ? "Cancellation processed, but response body was unreadable." : `Cancellation failed (Status ${response.status}, unreadable response body).`
-             };
-        } // End of inner try...catch for response processing
+             console.error("Worker /cancel-reservation: Error processing ForeUp response:", processingError);
+             success = response.ok || response.status === 204; clientResponseStatus = success ? 200 : (response.status || 500);
+             responseData = { success: success, message: success ? "Cancellation processed, response unreadable." : `Cancellation failed (Status ${response.status}, unreadable response).` };
+        } // End inner try...catch
 
-        // Ensure the success flag is consistently set in the final object
-        responseData.success = success;
+        responseData.success = success; // Ensure consistent flag
+        return jsonResponse(responseData, clientResponseStatus); // Return structured response
 
-        // Return the structured response to the frontend using the determined status
-        return jsonResponse(responseData, clientResponseStatus);
-
-    // Catch errors in the overall handler (e.g., parsing request body, network error during fetch)
-    } catch (error) {
-        debug(`Worker /cancel-reservation: Internal error handling request: ${error.message}`, { stack: error.stack });
+    } catch (error) { // Catch errors in outer handler scope
+        debug(`Worker /cancel-reservation: Internal error: ${error.message}`, { stack: error.stack });
         return errorResponse(`Failed to process cancellation request: ${error.message}`);
     }
-} // End handleCancelReservationRequest
+}
+
+
 // --- Static Course Data ---
 function getSanAntonioCourses() {
   // Ensure this list is accurate and complete
@@ -737,3 +551,4 @@ addEventListener("fetch", event => {
   event.respondWith(handleRequest(event.request));
 });
 
+// --- END OF FILE index.js (Cloudflare Worker) ---
