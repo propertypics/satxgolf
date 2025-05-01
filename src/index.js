@@ -554,6 +554,7 @@ async function handleReservationsRequest(request) {
                      console.warn(`Worker /api/reservations: Invalid or missing 'time' field for reservation:`, res.TTID || res.teetime_id);
                  }
                  // Return object with original data + processed date/time fields derived ONLY from res.time
+                 debug(`Worker /api/reservations: FINAL calculated values for TTID ${res.TTID || res.teetime_id}: timestamp=${teeTimestamp}, displayDate=${displayDate}, displayTime=${displayTime}`);
                  return { ...res, teeTimestamp, displayDate, displayTime, isoDateTime };
             }); // ---^^^--- END OF .map() CALLBACK ---^^^---
             }); // ---^^^--- END OF REPLACEMENT for .map() CALLBACK ---^^^---
