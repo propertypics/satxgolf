@@ -5,6 +5,44 @@
 console.log("mystats.js executing");
 
 // --- Stats Page Specific Functions ---
+async function handleCancelClick(event) { // This function DEFINITION needs to be here
+    // Check if the clicked element IS the cancel button itself
+    if (event.target && event.target.classList.contains('reservation-cancel-button')) {
+        const button = event.target;
+        const ttid = button.dataset.ttid; // Get TTID from data-ttid attribute
+
+        if (!ttid) {
+            console.error("STATS_PAGE handleCancelClick: Button missing data-ttid.");
+            alert("Error: Cannot identify reservation to cancel.");
+            return;
+        }
+        console.log(`STATS_PAGE handleCancelClick: Cancel clicked for TTID: ${ttid}`);
+
+        if (confirm('Are you sure you want to cancel this tee time? This cannot be undone.')) {
+            console.log(`STATS_PAGE handleCancelClick: User confirmed cancellation for TTID: ${ttid}`);
+            button.textContent = 'Cancelling...'; button.disabled = true;
+            try {
+                // Check if the API function exists (defined in utils.js)
+                if (typeof cancelBookingApi !== 'function') {
+                     throw new Error("Cancellation function (cancelBookingApi) is missing.");
+                }
+                // Call the API function using await
+                const result = await cancelBookingApi(ttid);
+                console.log("STATS_PAGE handleCancelClick: Cancellation API result:", result);
+
+                if (result.success) {
+                    alert('Reservation cancelled successfully!');
+                    button.closest('li.reservation')?.remove(); // Remove item from UI
+                    removeBookingFromLocalStorage(ttid); // Remove from local cache if used
+                } else { throw new Error(result.message || 'Cancellation failed.'); }
+            } catch (error) {
+                console.error(`STATS_PAGE handleCancelClick: Error cancelling reservation ${ttid}:`, error);
+                alert(`Cancellation Failed: ${error.message}`);
+                button.textContent = 'Cancel'; button.disabled = false; // Reset button
+            }
+        } else { console.log(`STATS_PAGE handleCancelClick: User cancelled cancellation for TTID: ${ttid}`); }
+    } // else: click was not on a cancel button
+}
 
 /**
  * Helper to categorize pass usage rules.
@@ -24,10 +62,14 @@ function statsGetRuleType(ruleName) {
  * Fetches upcoming reservations using the API call and displays them.
  * Manages loading/error states for the reservation section.
  */
+
+
 async function displayUpcomingReservations() {
     console.log("STATS_PAGE: Displaying upcoming reservations...");
     // Use shared getElement from utils.js
-    const reservationsDiv = getElement('upcomingReservations', 'Upcoming reservations div not found', false);
+    const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
+    const reservationsDiv = getElementFunc('upcomingReservations', 'Upcoming reservations div not found', false);
+
     if (!reservationsDiv) {
         console.error("STATS_PAGE: Cannot display reservations - target div missing.");
         return; // Exit if display area not found
@@ -36,67 +78,120 @@ async function displayUpcomingReservations() {
     reservationsDiv.innerHTML = '<p>Loading reservations...</p>'; // Show loading state
 
     try {
-        // Use the new API call function (defined in utils.js)
-        const allReservations = await fetchReservations(); // Use await
+        // Use shared fetchReservations from utils.js
+        if (typeof fetchReservations !== 'function') {
+             throw new Error("fetchReservations function is missing.");
+        }
+        const allReservations = await fetchReservations(); // Fetch data
+        console.log("STATS_PAGE: Raw reservation data received for filtering:", JSON.stringify(allReservations, null, 2));
+
         const now = Date.now();
+        console.log("STATS_PAGE: Current timestamp (for comparison):", now);
 
-        // Filter for upcoming bookings using the timestamp added by the worker
-        const upcomingBookings = allReservations.filter(
-            // Check date_cancelled and teeTimestamp
-            b => (!b.date_cancelled || b.date_cancelled === "0000-00-00 00:00:00") && // Ensure not cancelled
-                 (b.teeTimestamp && b.teeTimestamp > now) // Ensure time is in the future
-        );
+        // Filter for upcoming bookings
+        const upcomingBookings = allReservations.filter(b => {
+            const isCancelled = b.date_cancelled && b.date_cancelled !== "0000-00-00 00:00:00";
+            let timestamp = null;
+            const timeStr = b.time; // Use the 'time' field "YYYY-MM-DD HH:MM"
 
-        // Sort by date/time ascending
-        upcomingBookings.sort((a, b) => (a.teeTimestamp || 0) - (b.teeTimestamp || 0));
+            // Add detailed logging inside the filter for debugging
+            // console.log(`STATS_PAGE: Filtering TTID ${b.TTID || b.teetime_id} - Raw time string: "${timeStr}"`);
+
+            if (!isCancelled && timeStr && typeof timeStr === 'string') {
+                 try { // Parse in browser's local time
+                     const parts = timeStr.split(' ');
+                     if (parts.length === 2) {
+                         const dateParts = parts[0].split('-');
+                         const timeParts = parts[1].split(':');
+                         if (dateParts.length === 3 && timeParts.length === 2) {
+                             const year = parseInt(dateParts[0], 10);
+                             const month = parseInt(dateParts[1], 10); // 1-12
+                             const day = parseInt(dateParts[2], 10);
+                             const hour = parseInt(timeParts[0], 10);
+                             const minute = parseInt(timeParts[1], 10);
+                             const dLocal = new Date(year, month - 1, day, hour, minute); // month is 0-indexed
+                             if (!isNaN(dLocal.getTime())) {
+                                 timestamp = dLocal.getTime();
+                             }
+                             // console.log(`STATS_PAGE: Filtering TTID ${b.TTID || b.teetime_id} - Constructed local Date:`, dLocal);
+                         } else { /* console.warn(`STATS_PAGE: Invalid date/time parts for TTID ${b.TTID || b.teetime_id}`); */ }
+                     } else { /* console.warn(`STATS_PAGE: Invalid time string format for TTID ${b.TTID || b.teetime_id}: "${timeStr}"`); */ }
+                 } catch(e) { console.error(`STATS_PAGE: Error parsing reservation time for TTID ${b.TTID || b.teetime_id}:`, timeStr, e); }
+            }
+            // else if(isCancelled) { console.log(`STATS_PAGE: Filtering TTID ${b.TTID || b.teetime_id} - Skipping because cancelled: ${b.date_cancelled}`); }
+            // else { console.log(`STATS_PAGE: Filtering TTID ${b.TTID || b.teetime_id} - Skipping because timeStr is invalid: "${timeStr}"`); }
+
+            const isFuture = timestamp && timestamp > now; // Compare local timestamp with UTC now
+            // console.log(`STATS_PAGE: Filtering TTID ${b.TTID || b.teetime_id}: timestamp=${timestamp}, now=${now}, isFuture=${isFuture}, isCancelled=${isCancelled}`);
+            return !isCancelled && isFuture; // Final filter check
+        }); // End Filter
 
         console.log(`STATS_PAGE: Found ${upcomingBookings.length} upcoming bookings to display.`);
 
         if (upcomingBookings.length === 0) {
             reservationsDiv.innerHTML = '<p>No upcoming reservations found.</p>';
-            return;
+            return; // Nothing more to do
         }
 
         // Generate HTML list
-        // Using fields processed by the worker (displayDate, displayTime)
-        // and the final TTID for cancellation
-        reservationsDiv.innerHTML = `
+        // Use display fields pre-processed by worker OR format here if worker sends raw
+        const listHtml = `
             <ul class="reservations">
-                ${upcomingBookings.map(booking => `
-                    <li class="reservation" data-booking-list-id="${booking.TTID || booking.teetime_id}">
-                        <button
-                            class="btn btn-danger pull-right cancel reservation-cancel-button"
-                            data-ttid="${booking.TTID || booking.teetime_id}"
-                            title="Cancel this reservation">
-                            Cancel
-                        </button>
-                        <div class="pull-left reservation-details">
-                            <h4 style="margin-top: 0px; margin-bottom: 2px;">
-                                ${booking.displayDate || 'Unknown Date'} @ ${booking.displayTime || 'Unknown Time'}
-                            </h4>
-                            <span class="details">
-                                ${booking.course_name || 'Unknown Course'}
-                                ${booking.teesheet_title && booking.teesheet_title !== booking.course_name ? ` - ${booking.teesheet_title}` : ''}
-                            </span>
-                        </div>
-                        <div class="pull-left reservation-meta">
-                             <!-- Use fields directly from reservation object -->
-                            <div class="holes">
-                                <span class="glyphicon glyphicon-flag"></span> ${booking.holes || '?'} holes
+                ${upcomingBookings.map(booking => {
+                    // Use data directly from the booking object returned by the API call
+                    const displayDate = booking.displayDate || 'Unknown Date'; // Use pre-formatted from worker
+                    const displayTime = booking.displayTime || 'Unknown Time'; // Use pre-formatted from worker
+                    const courseName = booking.course_name || 'Unknown Course';
+                    const teesheetTitle = booking.teesheet_title || '';
+                    const holes = booking.holes || '?';
+                    const players = booking.player_count || '?';
+                    const carts = booking.carts || '0';
+                    const ttid = booking.TTID || booking.teetime_id; // Use the final ID
+
+                    return `
+                        <li class="reservation" data-booking-list-id="${ttid}">
+                            <button
+                                class="btn btn-danger pull-right cancel reservation-cancel-button"
+                                data-ttid="${ttid}"
+                                title="Cancel this reservation">
+                                Cancel
+                            </button>
+                            <div class="pull-left reservation-details">
+                                <h4 style="margin-top: 0px; margin-bottom: 2px;">
+                                    ${displayDate} @ ${displayTime}
+                                </h4>
+                                <span class="details">
+                                    ${courseName}
+                                    ${teesheetTitle && teesheetTitle !== courseName ? ` - ${teesheetTitle}` : ''}
+                                </span>
                             </div>
-                            <div class="players">
-                                <span class="glyphicon glyphicon-user"></span> ${booking.player_count || '?'} player(s)
+                            <div class="pull-left reservation-meta">
+                                <div class="holes">
+                                    <span class="glyphicon glyphicon-flag"></span> ${holes} holes
+                                </div>
+                                <div class="players">
+                                    <span class="glyphicon glyphicon-user"></span> ${players} player(s)
+                                </div>
+                                 <div class="carts-info" style="font-size: smaller; color: #666;">
+                                    <span class="glyphicon glyphicon-shopping-cart"></span> Carts: ${carts}
+                                </div>
                             </div>
-                             <div class="carts-info" style="font-size: smaller; color: #666;">
-                                <span class="glyphicon glyphicon-shopping-cart"></span> Carts: ${booking.carts || '0'}
-                            </div>
-                        </div>
-                    </li>
-                `).join('')}
+                        </li>
+                    `;
+                    }).join('')}
             </ul>`;
 
-        // Add event listener for cancel buttons (using event delegation)
-        attachCancelListeners(); // Assumes this function is defined below or globally
+        // Update the DOM with the generated list
+        reservationsDiv.innerHTML = listHtml;
+        console.log("STATS_PAGE: Updated #upcomingReservations innerHTML.");
+
+        // Attach event listener using the specific container element reference
+        // Check if the function exists before calling
+        if (typeof attachCancelListeners === 'function') {
+             attachCancelListeners(reservationsDiv); // <<< PASS the specific div element
+        } else {
+            console.error("STATS_PAGE: attachCancelListeners function is missing!");
+        }
 
     } catch (error) {
         console.error("STATS_PAGE: Error displaying upcoming reservations:", error);
@@ -107,59 +202,47 @@ async function displayUpcomingReservations() {
              reservationsDiv.innerHTML = `<p style="color:red;">Error loading reservations: ${error.message}</p>`;
         }
     }
-}
+} // End displayUpcomingReservations
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Attaches event listeners to cancel buttons using event delegation.
+ * ACCEPTS the container element as an argument.
  */
+function attachCancelListeners(containerElement) { // Accepts element
+    const reservationsDiv = containerElement; // Use passed element
 
-
-
-/**
- * Attaches event listeners to cancel buttons within the #upcomingReservations container
- * using event delegation. Ensures only one listener is active.
- */
-function attachCancelListeners() {
-    // Use shared getElement from utils.js if available, otherwise fallback
-    const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
-
-    // Get the container element *inside* the function
-    const reservationsDiv = getElementFunc('upcomingReservations', 'Upcoming reservations div not found for listeners', false);
-
-    if (!reservationsDiv) {
-        console.error("STATS_PAGE: Could not find #upcomingReservations div to attach cancel listener.");
-        return; // Exit if element not found
+    if (!reservationsDiv || !(reservationsDiv instanceof HTMLElement)) {
+        console.error("STATS_PAGE attachCancelListeners: Invalid containerElement passed.");
+        return;
     }
+    console.log("STATS_PAGE: Attaching cancel listener to provided element:", reservationsDiv.id);
 
-    // Define the actual handler function separately for clarity and easy removal
-    // This assumes handleCancelClick is defined elsewhere in mystats.js
-    const cancelClickHandler = (event) => {
-        // Check if the actual function exists before calling it
-        if (typeof handleCancelClick === 'function') {
-            handleCancelClick(event); // Call the main handler logic
-        } else {
-            console.error("STATS_PAGE: handleCancelClick function is not defined!");
-        }
-    };
+    // Use the main handler directly (handleCancelClick defined below)
+    const cancelClickHandler = handleCancelClick; // Assign function reference
 
-    // Remove previous listener if one was stored on the element
-    // We store the handler reference using a custom property (e.g., _cancelHandler)
+    // Remove previous listener using a stored property if needed
     if (reservationsDiv._cancelHandler) {
         reservationsDiv.removeEventListener('click', reservationsDiv._cancelHandler);
-        console.log("STATS_PAGE: Removed previous cancel listener.");
-    } else {
-        console.log("STATS_PAGE: No previous cancel listener found to remove.");
     }
 
     // Add the new listener
     reservationsDiv.addEventListener('click', cancelClickHandler);
-
-    // Store the reference to the handler *on the element itself*
-    // This allows us to remove the correct listener later if needed
+    // Store the reference to the handler on the element itself
     reservationsDiv._cancelHandler = cancelClickHandler;
 
-    console.log("STATS_PAGE: Cancel button listener attached to #upcomingReservations.");
+    console.log("STATS_PAGE: Cancel button listener attached.");
 }
+
 
 /**
  * Removes a specific booking from the user_bookings array in localStorage.
