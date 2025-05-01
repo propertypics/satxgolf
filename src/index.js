@@ -557,7 +557,6 @@ async function handleReservationsRequest(request) {
                  debug(`Worker /api/reservations: FINAL calculated values for TTID ${res.TTID || res.teetime_id}: timestamp=${teeTimestamp}, displayDate=${displayDate}, displayTime=${displayTime}`);
                  return { ...res, teeTimestamp, displayDate, displayTime, isoDateTime };
             }); // ---^^^--- END OF .map() CALLBACK ---^^^---
-            }); // ---^^^--- END OF REPLACEMENT for .map() CALLBACK ---^^^---
 
         } else {
             debug("Worker /api/reservations: 'reservations' array not found or not an array in USER object.");
