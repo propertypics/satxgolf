@@ -1092,3 +1092,166 @@ footer {
           margin-bottom: 0;
      }
 }
+
+
+
+
+/* === Upcoming Reservations Styles === */
+
+/* Ensure the container has some default state */
+#upcomingReservations {
+    margin-top: 15px; /* Add space below the H3 title */
+    min-height: 50px; /* Give it some height while loading */
+}
+
+/* Style the loading/no reservations message */
+#upcomingReservations p {
+    color: #666;
+    font-style: italic;
+    padding: 10px 0;
+}
+#upcomingReservations p[style*="color:red"] { /* Error messages */
+     font-style: normal;
+     font-weight: 500;
+}
+
+
+/* Style the list itself */
+#upcomingReservations ul.reservations {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Style each list item (reservation) */
+#upcomingReservations li.reservation {
+    background-color: #fdfdfd; /* Slightly off-white background */
+    border: 1px solid #eee;    /* Light border */
+    border-radius: 6px;        /* Rounded corners */
+    padding: 12px 15px;        /* Internal spacing */
+    margin-bottom: 12px;       /* Space between reservations */
+    /* Use Flexbox for layout within the list item */
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+    justify-content: space-between; /* Push button to right */
+    align-items: center; /* Vertically align items */
+    gap: 10px 15px; /* Row and column gap */
+}
+
+#upcomingReservations li.reservation:last-child {
+    margin-bottom: 0;
+}
+
+/* Style the main details block (Date, Time, Course) */
+.reservation-details {
+    flex-grow: 1; /* Allow this section to take available space */
+    min-width: 200px; /* Prevent it getting too squished */
+}
+
+.reservation-details h4 {
+    margin: 0 0 4px 0 !important; /* Override default h4 margins if needed */
+    font-size: 1.05rem; /* Slightly larger font */
+    color: #333;
+    font-weight: 600;
+}
+
+.reservation-details .details {
+    font-size: 0.9rem;
+    color: #555;
+    display: block; /* Ensure it takes its own line */
+}
+
+/* Style the meta info block (Holes, Players, Carts) */
+.reservation-meta {
+    display: flex;
+    gap: 15px; /* Space between meta items */
+    font-size: 0.85rem;
+    color: #666;
+    flex-basis: 100%; /* Make it take full width on wrap - optional */
+    order: 3; /* Ensure it appears below details/button on wrap */
+    padding-top: 5px;
+    border-top: 1px dashed #eee; /* Separator */
+    margin-top: 5px;
+}
+
+/* Style individual meta items */
+.reservation-meta > div { /* Target direct children divs */
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Space between icon and text */
+}
+
+/* Style icons (Assumes you might add FontAwesome or similar later, uses basic chars now) */
+.reservation-meta .glyphicon { /* Basic styling if using text/symbols */
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
+
+/* Style the Cancel Button */
+.reservation-cancel-button {
+    /* Using .btn and .btn-danger suggests Bootstrap might be loaded? */
+    /* If not, style it here. Let's use styles similar to header buttons */
+    background-color: #fbebee; /* Light red background */
+    color: #c62828; /* Darker red text */
+    border: 1px solid #ffcdd2; /* Red border */
+    padding: 4px 10px; /* Smaller padding */
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+    /* Remove pull-right if using flexbox */
+    /* float: none !important; */
+     margin-left: auto; /* Push to right with flexbox */
+     order: 2; /* Place after details but before meta on wrap */
+     align-self: center; /* Align vertically in flex container */
+}
+
+.reservation-cancel-button:hover,
+.reservation-cancel-button:focus {
+    background-color: #c62828; /* Red background on hover */
+    color: white;
+    border-color: #b71c1c;
+    outline: none;
+}
+
+.reservation-cancel-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    background-color: #fbebee;
+    color: #ef9a9a;
+}
+
+/* Responsive adjustments for the reservation list */
+@media screen and (max-width: 520px) {
+    #upcomingReservations li.reservation {
+       flex-direction: column; /* Stack everything vertically */
+       align-items: stretch; /* Align items full width */
+    }
+    .reservation-details {
+         margin-bottom: 10px; /* Add space below details */
+         text-align: center;
+    }
+     .reservation-meta {
+         order: 2; /* Meta below details */
+         justify-content: center; /* Center meta items */
+         border-top: none;
+         padding-top: 0;
+         margin-top: 0;
+     }
+     .reservation-cancel-button {
+        order: 3; /* Button last */
+        margin-left: 0; /* Remove margin */
+        margin-top: 10px;
+        width: 100%; /* Make button full width */
+    }
+}
+
+
+
+
+
+
+
