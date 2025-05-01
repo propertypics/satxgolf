@@ -578,89 +578,144 @@ async function handleReservationsRequest(request) {
 /**
  * Handles requests to cancel a specific reservation via ForeUp.
  */
-async function handleCancelReservationRequest(request) {
+
+sync function handleCancelReservationRequest(request) {
     debug("Worker: Handling /api/cancel-reservation request");
-    if (request.method !== "POST") return errorResponse("Method Not Allowed", 405);
+
+    // Outer try block for the entire request handling
     try {
+        // 1. Check Method
+        if (request.method !== "POST") {
+            return errorResponse("Method Not Allowed, use POST", 405);
+        }
+
+        // 2. Parse Body to get reservationId
         let requestData;
-        try { requestData = await request.json(); }
-        catch (error) { return errorResponse("Invalid JSON request body", 400); }
+        try {
+            requestData = await request.json();
+            debug("Worker /cancel-reservation: Received request body:", requestData);
+        } catch (error) {
+            debug("Worker /cancel-reservation: Invalid JSON body", error);
+            return errorResponse("Invalid JSON request body", 400);
+        }
 
         const reservationId = requestData?.reservationId;
         if (!reservationId || typeof reservationId !== 'string' || !reservationId.startsWith('TTID_')) {
+            debug("Worker /cancel-reservation: Missing or invalid reservationId in body:", reservationId);
             return errorResponse("Missing or invalid reservationId in request body", 400);
         }
+
+        // 3. Authenticate User
         const jwt = request.headers.get("Authorization")?.replace("Bearer ", "");
         const cookies = request.headers.get("X-ForeUp-Cookies");
-        if (!jwt) return errorResponse("Authentication required", 401);
+        if (!jwt) {
+            debug("Worker /cancel-reservation: Missing JWT");
+            return errorResponse("Authentication required", 401);
+        }
+        debug("Worker /cancel-reservation: Authentication headers received.");
 
+        // 4. Construct ForeUp DELETE URL
         const foreupCancelUrl = `https://foreupsoftware.com/index.php/api/booking/users/reservations/${reservationId}`;
-        debug(`Worker /api/cancel-reservation: Target ForeUp URL for DELETE: ${foreupCancelUrl}`);
-        const headers = {
-            'accept': 'application/json, text/javascript, */*; q=0.01', 'api-key': 'no_limits',
-            'Cookie': cookies || '', 'Referer': `https://foreupsoftware.com/index.php/booking/`,
-            'User-Agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)', 'x-authorization': `Bearer ${jwt}`,
-            'x-fu-golfer-location': 'foreup', 'x-requested-with': 'XMLHttpRequest',
-            'origin': 'https://foreupsoftware.com' // Include Origin
-            // Add other optional headers if testing shows they are needed
-        };
-        debug("Worker /api/cancel-reservation: Headers for ForeUp DELETE:", headers);
+        debug(`Worker /cancel-reservation: Target ForeUp URL for DELETE: ${foreupCancelUrl}`);
 
-        const response = await fetch(foreupCancelUrl, { method: 'DELETE', headers: headers });
-        debug(`Worker /api/cancel-reservation: ForeUp response status: ${response.status}`);
-        
-        // ---vvv--- PROBLEM AREA LIKELY HERE ---vvv---
+        // 5. Construct Headers for ForeUp DELETE request
+        const headers = {
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'accept-language': 'en-US,en;q=0.9',
+            'api-key': 'no_limits',
+            'Cookie': cookies || '',
+            'dnt': '1',
+            'origin': 'https://foreupsoftware.com',
+            'priority': 'u=1, i',
+            'referer': `https://foreupsoftware.com/index.php/booking/`, // Generic Referer
+            'sec-ch-ua': '"Chromium";v="133", "Not(A:Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (compatible; SATXGolfApp-Worker/1.0)',
+            'x-authorization': `Bearer ${jwt}`,
+            'x-fu-golfer-location': 'foreup',
+            'x-requested-with': 'XMLHttpRequest'
+        };
+        debug("Worker /cancel-reservation: Headers for ForeUp DELETE:", headers);
+
+        // 6. Make the DELETE request to ForeUp
+        const response = await fetch(foreupCancelUrl, {
+            method: 'DELETE',
+            headers: headers
+        });
+        debug(`Worker /cancel-reservation: Received cancel response from ForeUp status: ${response.status}`);
+
+        // 7. Process ForeUp's Response & Respond to Frontend
         let responseData = {};
-        let clientResponseStatus = response.status;
+        let clientResponseStatus = response.status; // Use ForeUp's status initially
         let success = false;
 
-        // This try block is specifically for processing the response body
+        // Inner try...catch specifically for handling the response body parsing
         try {
+            // Check for successful HTTP status codes (2xx range, including 204)
             if (response.ok || response.status === 204) {
                  success = true;
-                 clientResponseStatus = 200; // Standardize success status for client
+                 clientResponseStatus = 200; // Standardize client success response to 200
                  debug("Worker /cancel-reservation: ForeUp DELETE successful (status OK/204).");
-                 try { // Nested try for parsing potential success body
+
+                 // Try to parse response body even on success, ForeUp might send info
+                 try {
                       const body = await response.json();
                       responseData = { ...body, success: true }; // Merge and ensure flag
                  } catch(e) {
-                      // No body or not JSON is OK for success (especially 204)
-                      responseData = { success: true, message: "Reservation cancelled." };
+                      // If no body (like 204) or not JSON, create a simple success message
+                      responseData = { success: true, message: "Reservation cancelled successfully." };
                  }
             } else {
                  // Handle ForeUp error status codes (4xx, 5xx)
                  success = false;
                  console.error(`Worker /cancel-reservation: ForeUp DELETE failed. Status: ${response.status}`);
+                 // Initialize error response structure
                  responseData = { success: false, message: `ForeUp rejected cancellation (Status ${response.status})`};
-                 try { // Nested try for parsing potential error body
+                 try {
+                      // Try to get a more specific error message from ForeUp's JSON response body
                       const errBody = await response.json();
                       responseData.message = errBody.message || errBody.error || responseData.message;
-                      responseData.foreup_response = errBody;
+                      responseData.foreup_response = errBody; // Include original error for debugging
                  } catch(e) {
-                      // Error body might not be JSON
-                      try { const errText = await response.text(); responseData.message += ` - ${errText.substring(0,100)}`; responseData.foreup_raw_response = errText.substring(0, 500); } catch (readErr) {}
+                      // If error body isn't JSON, try to get text
+                      try {
+                          const errText = await response.text();
+                          responseData.message += ` - ${errText.substring(0,100)}`; // Add snippet of text response
+                          responseData.foreup_raw_response = errText.substring(0, 500);
+                      } catch (readErr) { /* Ignore if can't even read text */ }
                  }
-                 console.error("Worker /api/cancel-reservation: ForeUp cancellation failed details:", responseData);
-                 clientResponseStatus = response.status; // Keep ForeUp's error status
+                 console.error("Worker /cancel-reservation: ForeUp cancellation failed details:", responseData);
+                 // Keep ForeUp's original error status for the client response
+                 clientResponseStatus = response.status;
             }
-        // This catch belongs to the inner try block for response processing
-        } catch (e) {
-             console.error("Worker /cancel-reservation: Error processing ForeUp response:", e);
-             success = response.ok || response.status === 204; // Base success on original status if processing failed
-             clientResponseStatus = success ? 200 : (response.status || 500);
-             responseData = { success: success, message: success ? "Cancellation processed, response unreadable." : `Cancellation failed (Status ${response.status}, unreadable response).` };
-        }
-        // ---^^^--- END PROBLEM AREA ---^^^---
+        // Catch errors occurring during the response body processing (e.g., JSON.parse errors)
+        } catch (processingError) {
+             console.error("Worker /cancel-reservation: Error processing ForeUp response body:", processingError);
+             // Base success on original HTTP status if processing failed
+             success = response.ok || response.status === 204;
+             clientResponseStatus = success ? 200 : (response.status || 500); // Use original status or default to 500
+             responseData = {
+                 success: success,
+                 message: success ? "Cancellation processed, but response body was unreadable." : `Cancellation failed (Status ${response.status}, unreadable response body).`
+             };
+        } // End of inner try...catch for response processing
 
-        
-        responseData.success = success; // Ensure flag consistency
+        // Ensure the success flag is consistently set in the final object
+        responseData.success = success;
+
+        // Return the structured response to the frontend using the determined status
         return jsonResponse(responseData, clientResponseStatus);
+
+    // Catch errors in the overall handler (e.g., parsing request body, network error during fetch)
     } catch (error) {
-        debug(`Worker /api/cancel-reservation: Internal error: ${error.message}`, { stack: error.stack });
+        debug(`Worker /cancel-reservation: Internal error handling request: ${error.message}`, { stack: error.stack });
         return errorResponse(`Failed to process cancellation request: ${error.message}`);
     }
-}
-
+} // End handleCancelReservationRequest
 // --- Static Course Data ---
 function getSanAntonioCourses() {
   // Ensure this list is accurate and complete
