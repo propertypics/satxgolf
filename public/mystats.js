@@ -112,46 +112,53 @@ async function displayUpcomingReservations() {
 /**
  * Attaches event listeners to cancel buttons using event delegation.
  */
+
+
+
+/**
+ * Attaches event listeners to cancel buttons within the #upcomingReservations container
+ * using event delegation. Ensures only one listener is active.
+ */
 function attachCancelListeners() {
-    // Use shared getElement from utils.js
-    const reservationsDiv = getElement('upcomingReservations', 'Upcoming reservations div not found for listeners', false);
-    if (!reservationsDiv) return;
+    // Use shared getElement from utils.js if available, otherwise fallback
+    const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
 
-    // Define handler separately for clarity and potential removal
-    const cancelClickHandler = async (event) => { // Make async
-        if (event.target && event.target.classList.contains('reservation-cancel-button')) {
-            const button = event.target;
-            const ttid = button.dataset.ttid;
-            if (!ttid) { /* ... handle missing ttid ... */ return; }
+    // Get the container element *inside* the function
+    const reservationsDiv = getElementFunc('upcomingReservations', 'Upcoming reservations div not found for listeners', false);
 
-            console.log(`STATS_PAGE: Cancel clicked for TTID: ${ttid}`);
-            if (confirm('Are you sure you want to cancel this tee time?')) {
-                button.textContent = 'Cancelling...'; button.disabled = true;
-                try {
-                    // Use shared cancelBookingApi from utils.js
-                    const result = await cancelBookingApi(ttid);
-                    console.log("STATS_PAGE: Cancellation API result:", result);
-                    if (result.success) { // Check for success indicator from API function
-                        alert('Reservation cancelled successfully!');
-                        button.closest('li.reservation')?.remove(); // Remove item from UI
-                        removeBookingFromLocalStorage(ttid); // Remove from local cache if needed (though list should refresh)
-                        // Optional: Re-run displayUpcomingReservations() to refresh list cleanly?
-                        // displayUpcomingReservations();
-                    } else { throw new Error(result.message || 'Cancellation failed.'); }
-                } catch (error) {
-                    console.error(`STATS_PAGE: Error cancelling reservation ${ttid}:`, error);
-                    alert(`Cancellation Failed: ${error.message}`);
-                    button.textContent = 'Cancel'; button.disabled = false; // Reset button
-                }
-            } else { console.log(`STATS_PAGE: User cancelled cancellation for TTID: ${ttid}`); }
+    if (!reservationsDiv) {
+        console.error("STATS_PAGE: Could not find #upcomingReservations div to attach cancel listener.");
+        return; // Exit if element not found
+    }
+
+    // Define the actual handler function separately for clarity and easy removal
+    // This assumes handleCancelClick is defined elsewhere in mystats.js
+    const cancelClickHandler = (event) => {
+        // Check if the actual function exists before calling it
+        if (typeof handleCancelClick === 'function') {
+            handleCancelClick(event); // Call the main handler logic
+        } else {
+            console.error("STATS_PAGE: handleCancelClick function is not defined!");
         }
     };
 
-    // Remove previous listener before adding new one
-    reservationsDiv.removeEventListener('click', reservationsDiv._cancelHandler); // Use stored handler reference
+    // Remove previous listener if one was stored on the element
+    // We store the handler reference using a custom property (e.g., _cancelHandler)
+    if (reservationsDiv._cancelHandler) {
+        reservationsDiv.removeEventListener('click', reservationsDiv._cancelHandler);
+        console.log("STATS_PAGE: Removed previous cancel listener.");
+    } else {
+        console.log("STATS_PAGE: No previous cancel listener found to remove.");
+    }
+
+    // Add the new listener
     reservationsDiv.addEventListener('click', cancelClickHandler);
-    reservationsDiv._cancelHandler = cancelClickHandler; // Store reference for removal
-    console.log("STATS_PAGE: Cancel button listeners attached.");
+
+    // Store the reference to the handler *on the element itself*
+    // This allows us to remove the correct listener later if needed
+    reservationsDiv._cancelHandler = cancelClickHandler;
+
+    console.log("STATS_PAGE: Cancel button listener attached to #upcomingReservations.");
 }
 
 /**
