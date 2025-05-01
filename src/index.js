@@ -608,25 +608,51 @@ async function handleCancelReservationRequest(request) {
 
         const response = await fetch(foreupCancelUrl, { method: 'DELETE', headers: headers });
         debug(`Worker /api/cancel-reservation: ForeUp response status: ${response.status}`);
+        
+        // ---vvv--- PROBLEM AREA LIKELY HERE ---vvv---
+        let responseData = {};
+        let clientResponseStatus = response.status;
+        let success = false;
 
-        let responseData = {}; let clientResponseStatus = response.status; let success = false;
+        // This try block is specifically for processing the response body
         try {
             if (response.ok || response.status === 204) {
-                 success = true; clientResponseStatus = 200;
-                 try { responseData = await response.json(); responseData.success = true; }
-                 catch(e) { responseData = { success: true, message: "Reservation cancelled." }; }
+                 success = true;
+                 clientResponseStatus = 200; // Standardize success status for client
+                 debug("Worker /cancel-reservation: ForeUp DELETE successful (status OK/204).");
+                 try { // Nested try for parsing potential success body
+                      const body = await response.json();
+                      responseData = { ...body, success: true }; // Merge and ensure flag
+                 } catch(e) {
+                      // No body or not JSON is OK for success (especially 204)
+                      responseData = { success: true, message: "Reservation cancelled." };
+                 }
             } else {
+                 // Handle ForeUp error status codes (4xx, 5xx)
                  success = false;
+                 console.error(`Worker /cancel-reservation: ForeUp DELETE failed. Status: ${response.status}`);
                  responseData = { success: false, message: `ForeUp rejected cancellation (Status ${response.status})`};
-                 try { const errBody = await response.json(); responseData.message = errBody.message || errBody.error || responseData.message; responseData.foreup_response = errBody;}
-                 catch(e) { try { const errText = await response.text(); responseData.message += ` - ${errText.substring(0,100)}`; responseData.foreup_raw_response = errText.substring(0, 500); } catch (readErr) {} }
+                 try { // Nested try for parsing potential error body
+                      const errBody = await response.json();
+                      responseData.message = errBody.message || errBody.error || responseData.message;
+                      responseData.foreup_response = errBody;
+                 } catch(e) {
+                      // Error body might not be JSON
+                      try { const errText = await response.text(); responseData.message += ` - ${errText.substring(0,100)}`; responseData.foreup_raw_response = errText.substring(0, 500); } catch (readErr) {}
+                 }
                  console.error("Worker /api/cancel-reservation: ForeUp cancellation failed details:", responseData);
+                 clientResponseStatus = response.status; // Keep ForeUp's error status
             }
+        // This catch belongs to the inner try block for response processing
         } catch (e) {
-             console.error("Worker /api/cancel-reservation: Error processing ForeUp response:", e);
-             success = response.ok || response.status === 204; clientResponseStatus = success ? 200 : (response.status || 500);
+             console.error("Worker /cancel-reservation: Error processing ForeUp response:", e);
+             success = response.ok || response.status === 204; // Base success on original status if processing failed
+             clientResponseStatus = success ? 200 : (response.status || 500);
              responseData = { success: success, message: success ? "Cancellation processed, response unreadable." : `Cancellation failed (Status ${response.status}, unreadable response).` };
         }
+        // ---^^^--- END PROBLEM AREA ---^^^---
+
+        
         responseData.success = success; // Ensure flag consistency
         return jsonResponse(responseData, clientResponseStatus);
     } catch (error) {
