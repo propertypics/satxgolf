@@ -496,22 +496,23 @@ async function handleReservationsRequest(request) {
             debug(`Worker /api/reservations: Extracted ${reservations.length} reservations.`);
 
             // ---vvv--- REPLACE THIS .map() CALLBACK ---vvv---
-            reservations = reservations.map((res) => {
+  // Process dates/times within the extracted array
+            const processedReservations = reservations.map((res) => {
                  let teeTimestamp = null;
                  let displayDate = 'Invalid Date';
                  let displayTime = 'Invalid Time';
-                 let isoDateTime = null; // Store standardized string
+                 let isoDateTime = null; // Store basic YYYY-MM-DD HH:MM string
 
-                 // **** USE res.time ("YYYY-MM-DD HH:MM") ****
-                 const timeStr = res.time;
+                 // **** GET THE CORRECT time string ****
+                 const timeStr = res.time; // e.g., "2025-05-04 17:00"
 
                  if (timeStr && typeof timeStr === 'string') {
-                     // Store the basic string format
-                     isoDateTime = timeStr.includes('T') ? timeStr : timeStr.replace(' ', 'T');
+                     // Basic cleanup/format attempt
+                     isoDateTime = timeStr.replace('T', ' ').split('.')[0]; // Remove T and milliseconds if present
 
                      try {
-                         // Parse "YYYY-MM-DD HH:MM" using components for local interpretation
-                         const parts = timeStr.split(' ');
+                         // ---vvv--- PARSE COMPONENTS EXPLICITLY FROM timeStr ---vvv---
+                         const parts = timeStr.split(' '); // ["YYYY-MM-DD", "HH:MM"]
                          let parsedDate = null;
                          if (parts.length === 2) {
                              const dateParts = parts[0].split('-'); // ["YYYY", "MM", "DD"]
@@ -522,32 +523,39 @@ async function handleReservationsRequest(request) {
                                  const day = parseInt(dateParts[2], 10);
                                  const hour = parseInt(timeParts[0], 10);
                                  const minute = parseInt(timeParts[1], 10);
-                                 // Create date object using local timezone interpretation (month is 0-indexed)
-                                 parsedDate = new Date(year, month - 1, day, hour, minute);
-                             }
-                         }
 
-                         if (parsedDate && !isNaN(parsedDate.getTime())) {
-                             teeTimestamp = parsedDate.getTime(); // Get timestamp
-                             // Use shared formatDate if available, otherwise basic format
-                             const formatDateFunc = typeof formatDate === 'function' ? formatDate : (dStr) => { try { return new Date(dStr).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }); } catch { return 'N/A'; } };
-                             displayDate = formatDateFunc(parsedDate);
-                             displayTime = parsedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                             debug(`Worker /api/reservations: Parsed time "${timeStr}" -> ${displayDate} ${displayTime} (Timestamp: ${teeTimestamp})`);
-                         } else {
-                              console.warn(`Worker /api/reservations: Could not parse valid date from 'time' field: ${timeStr}`);
-                              isoDateTime = null; // Clear if parsing failed
-                         }
+                                 // Validate parsed components
+                                 if (!isNaN(year) && !isNaN(month) && !isNaN(day) && !isNaN(hour) && !isNaN(minute)) {
+                                     // Create date object using components from timeStr (month is 0-indexed)
+                                     parsedDate = new Date(year, month - 1, day, hour, minute);
+
+                                     if (!isNaN(parsedDate.getTime())) {
+                                         // GENERATE TIMESTAMP FROM THIS CORRECT DATE OBJECT
+                                         teeTimestamp = parsedDate.getTime();
+
+                                         // Format display strings using this correct date object
+                                         // Use shared formatDate if available globally in worker context
+                                         const formatDateFunc = typeof formatDate === 'function' ? formatDate : (d) => d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                                         displayDate = formatDateFunc(parsedDate);
+                                         displayTime = parsedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                         debug(`Worker /api/reservations: Parsed time "${timeStr}" -> ${displayDate} ${displayTime} (Timestamp: ${teeTimestamp})`);
+                                     } else {
+                                         console.warn(`Worker /api/reservations: Constructed invalid date from 'time' field components: ${timeStr}`);
+                                         isoDateTime = timeStr; // Keep original if parsing failed badly
+                                     }
+                                 } else { console.warn(`Worker /api/reservations: Invalid date/time numeric components in 'time' field: ${timeStr}`); isoDateTime = timeStr; }
+                             } else { console.warn(`Worker /api/reservations: Invalid date/time parts in 'time' field: ${timeStr}`); isoDateTime = timeStr; }
+                         } else { console.warn(`Worker /api/reservations: Invalid format in 'time' field: ${timeStr}`); isoDateTime = timeStr; }
                      } catch (e) {
                           console.warn(`Worker /api/reservations: Error parsing 'time' field: ${timeStr}`, e);
-                          isoDateTime = null; // Clear on error
+                          isoDateTime = timeStr; // Keep original on error
                      }
                  } else {
                      console.warn(`Worker /api/reservations: Invalid or missing 'time' field for reservation:`, res.TTID || res.teetime_id);
                  }
-                 // Return object with original data + processed date/time fields
-                 // Ensure all needed original fields (like TTID, course_name etc.) are kept by ...res
+                 // Return object with original data + processed date/time fields derived ONLY from res.time
                  return { ...res, teeTimestamp, displayDate, displayTime, isoDateTime };
+            }); // ---^^^--- END OF .map() CALLBACK ---^^^---
             }); // ---^^^--- END OF REPLACEMENT for .map() CALLBACK ---^^^---
 
         } else {
