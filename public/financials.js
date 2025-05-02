@@ -80,7 +80,8 @@ function extractSalesFromLoginData() {
 
 /**
  * Fetches (or retrieves from cache) detailed financial transaction data.
- * Uses login_data identifier (passed in) for cache validation.
+ * Uses login_data identifier for cache validation.
+ * Implements frontend batching for fetching details if cache is invalid.
  * @param {string} currentLoginDataIdentifier - Hash/identifier of the current login_data's sales list.
  * @param {boolean} [forceRefresh=false] - If true, bypasses cache check.
  * @returns {Promise<Array>} A promise resolving with the array of detailed transaction objects (with app_requested_course_id).
@@ -88,67 +89,110 @@ function extractSalesFromLoginData() {
 async function getFinancialDetails(currentLoginDataIdentifier, forceRefresh = false) {
     console.log(`FINANCIALS: Getting financial details... Identifier: ${currentLoginDataIdentifier}, Force: ${forceRefresh}`);
     const getElementFunc = typeof getElement === 'function' ? getElement : (id) => document.getElementById(id);
-    const courses = typeof getSanAntonioCourses === 'function' ? getSanAntonioCourses() : [];
+    const financialSummaryDiv = getElementFunc('financialSummary', '', false); // For progress updates
 
     const cachedDataString = localStorage.getItem(FINANCIAL_CACHE_KEY);
     let cachedData = null;
 
-    // Check Cache first
+    // --- Check Cache ---
     if (cachedDataString && !forceRefresh) {
         try {
             cachedData = JSON.parse(cachedDataString);
             if (cachedData?.loginDataIdentifier === currentLoginDataIdentifier) {
                 console.log("FINANCIALS: Using cached data (identifier matches).");
                 return Array.isArray(cachedData.transactions) ? cachedData.transactions : [];
-            } else { console.log(`FINANCIALS: Cache invalid (identifier mismatch).`); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
+            } else { console.log(`FINANCIALS: Cache invalid.`); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
         } catch (e) { console.error("FINANCIALS: Error parsing cache:", e); localStorage.removeItem(FINANCIAL_CACHE_KEY); }
     }
+    // --- End Cache Check ---
 
-    // --- If Cache Miss or Force Refresh ---
-    // Get the list of sales to fetch using the helper function again
-    if (typeof extractSalesFromLoginData !== 'function') { throw new Error("extractSalesFromLoginData function is missing."); }
+
+    // --- Fetch Fresh Data (with Batching) ---
+
+    // 1. Get the full list of sales to fetch
+    if (typeof extractSalesFromLoginData !== 'function') { throw new Error("extractSalesFromLoginData missing."); }
     const extractionResult = extractSalesFromLoginData();
-    const salesToFetch = extractionResult.salesToFetch;
-    // Note: We use the currentLoginDataIdentifier passed into *this* function for caching later
+    const allSalesToFetch = extractionResult.salesToFetch; // Full list, e.g., 144 items
 
-    if (salesToFetch.length === 0) {
+    if (allSalesToFetch.length === 0) {
          console.log("FINANCIALS: No sales found to fetch details for.");
          const emptyCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: [] };
          try { localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(emptyCache)); } catch (e) {}
          return [];
     }
 
-    console.log(`FINANCIALS: Fetching fresh details for ${salesToFetch.length} sales...`);
+    console.log(`FINANCIALS: Cache miss or invalid. Need to fetch fresh details for ${allSalesToFetch.length} sales.`);
     const token = localStorage.getItem('jwt_token'); const cookies = localStorage.getItem('foreup_cookies');
-    if (!token) throw new Error("Authentication required for fetching financials.");
-
-    // Use shared API_BASE_URL from utils.js
+    if (!token) throw new Error("Authentication required.");
     const workerApiUrl = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'https://missing-api-base-url.com') + '/api/sale-details';
 
-    try {
-        console.log(`FINANCIALS: Calling worker endpoint: ${workerApiUrl}`);
-        const response = await fetch(workerApiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'X-ForeUp-Cookies': cookies || '' },
-            body: JSON.stringify({ sales: salesToFetch })
-        });
-        if (!response.ok) { const errorText = await response.text(); throw new Error(`Failed to fetch sale details: ${response.status} - ${errorText}`); }
-
-        const freshTransactions = await response.json(); // Worker should add courseId to meta
-        if (!Array.isArray(freshTransactions)) { throw new Error("Received invalid data format from server."); }
-        console.log(`FINANCIALS: Successfully fetched details for ${freshTransactions.length} sales.`);
-
-        // Cache the fresh data with the CURRENT identifier passed into this function
-        const dataToCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: freshTransactions };
-        try { localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(dataToCache)); console.log("FINANCIALS: Data cached."); }
-        catch (e) { console.error("FINANCIALS: Error caching data:", e); }
-
-        return freshTransactions;
-
-    } catch (error) {
-        console.error("FINANCIALS: Error fetching sale details from worker:", error);
-        throw error; // Re-throw error
+    // 2. Define Batch Size and Prepare Batches
+    const BATCH_SIZE = 40; // Number of sales details to fetch per worker call (adjust if needed, keep < 50)
+    const batches = [];
+    for (let i = 0; i < allSalesToFetch.length; i += BATCH_SIZE) {
+        batches.push(allSalesToFetch.slice(i, i + BATCH_SIZE));
     }
+    console.log(`FINANCIALS: Divided ${allSalesToFetch.length} sales into ${batches.length} batches of size ${BATCH_SIZE}.`);
+
+    // 3. Fetch Batches Sequentially (or concurrently with Promise.all if confident)
+    let allFetchedTransactions = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Update UI to show progress
+    if (financialSummaryDiv) financialSummaryDiv.innerHTML = `<p>Loading financial details (0/${batches.length} batches)...</p>`;
+
+    for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const batchNum = i + 1;
+        console.log(`FINANCIALS: Fetching Batch ${batchNum}/${batches.length} (${batch.length} sales)...`);
+        if (financialSummaryDiv) financialSummaryDiv.innerHTML = `<p>Loading financial details (${batchNum}/${batches.length} batches)...</p>`; // Update progress
+
+        try {
+            const response = await fetch(workerApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'X-ForeUp-Cookies': cookies || '' },
+                body: JSON.stringify({ sales: batch }) // Send only the current batch
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`FINANCIALS: Batch ${batchNum} fetch failed: ${response.status} - ${errorText}`);
+                errorCount += batch.length; // Assume all in batch failed
+                // Decide how to handle batch failure: continue, stop, retry? Let's continue for now.
+            } else {
+                const batchResults = await response.json();
+                if (Array.isArray(batchResults)) {
+                    console.log(`FINANCIALS: Batch ${batchNum} successful, received ${batchResults.length} details.`);
+                    allFetchedTransactions = allFetchedTransactions.concat(batchResults); // Add results to main array
+                    successCount += batchResults.length;
+                    if(batchResults.length < batch.length){
+                        errorCount += (batch.length - batchResults.length); // Count discrepancies as errors
+                         console.warn(`FINANCIALS: Batch ${batchNum} returned fewer results than expected.`);
+                    }
+                } else {
+                     console.error(`FINANCIALS: Batch ${batchNum} response was not an array.`);
+                     errorCount += batch.length;
+                }
+            }
+        } catch (error) {
+            console.error(`FINANCIALS: Network error fetching Batch ${batchNum}:`, error);
+            errorCount += batch.length; // Assume all in batch failed
+        }
+         // Optional: Add a small delay between batches if needed to avoid rate limits
+         // await new Promise(resolve => setTimeout(resolve, 200)); // e.g., 200ms delay
+    } // End batch loop
+
+    console.log(`FINANCIALS: Fetching complete. Success: ${successCount}, Failed/Skipped: ${errorCount}, Total: ${allFetchedTransactions.length}`);
+
+    // 4. Cache the aggregated results
+    const dataToCache = { loginDataIdentifier: currentLoginDataIdentifier, transactions: allFetchedTransactions };
+    try { localStorage.setItem(FINANCIAL_CACHE_KEY, JSON.stringify(dataToCache)); console.log("FINANCIALS: Aggregated data cached."); }
+    catch (e) { console.error("FINANCIALS: Error caching aggregated data:", e); }
+
+    // 5. Return the aggregated results
+    return allFetchedTransactions;
+
 } // End of getFinancialDetails
 
 
