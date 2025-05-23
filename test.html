@@ -1,1 +1,1018 @@
-test
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaTrail.com - Unofficial ACGT Member Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --primary-dark: #388E3C;
+            --primary-light: #E8F5E9;
+            --gray-dark: #333;
+            --gray: #777;
+            --gray-light: #eee;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.06);
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --radius: 10px;
+            --radius-sm: 6px;
+            --radius-lg: 16px;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--gray-dark);
+            line-height: 1.6;
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            width: 94%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header styles */
+        header {
+            background-color: white;
+            box-shadow: var(--shadow-sm);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 22px;
+            color: var(--primary);
+        }
+
+        .logo svg {
+            margin-right: 10px;
+            stroke: var(--primary);
+        }
+
+        .logo-domain {
+            font-weight: 700;
+        }
+
+        .logo-descriptor {
+            font-size: 12px;
+            color: var(--gray);
+            margin-left: 5px;
+            display: block;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 25px;
+            align-items: center;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--gray-dark);
+            font-weight: 500;
+            font-size: 15px;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        .nav-link.prominent {
+            padding: 7px 16px;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .nav-link.prominent:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .nav-link svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            vertical-align: -4px;
+            margin-right: 4px;
+        }
+
+        .login-button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 24px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .login-button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        /* Dashboard-style Hero section */
+        .dashboard-hero {
+            margin: 25px 0 40px;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 30px;
+        }
+
+        .hero-welcome {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .welcome-pattern {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 140px;
+            background-color: var(--primary-light);
+            opacity: 0.5;
+            clip-path: polygon(100% 0, 0% 100%, 100% 100%);
+            z-index: 1;
+        }
+
+        .welcome-content {
+            position: relative;
+            z-index: 5;
+        }
+
+        .welcome-badge {
+            display: inline-block;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 30px;
+            margin-bottom: 12px;
+        }
+
+        .welcome-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            max-width: 90%;
+        }
+
+        .welcome-subtitle {
+            color: var(--gray);
+            font-size: 14px;
+            margin-bottom: 16px;
+            max-width: 95%;
+        }
+
+        .welcome-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .feature-chip {
+            display: flex;
+            align-items: center;
+            background-color: #f9f9f9;
+            color: var(--gray-dark);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 10px;
+            border-radius: 6px;
+        }
+
+        .feature-chip svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--primary);
+            margin-right: 5px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: var(--primary);
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 22px;
+            border-radius: 30px;
+            font-size: 15px;
+            transition: background-color 0.2s;
+        }
+
+        .cta-button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .stats-panel {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 25px;
+        }
+
+        .stats-panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--gray-dark);
+            display: flex;
+            align-items: center;
+        }
+
+        .stats-panel-title svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--primary);
+            margin-right: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-card {
+            background-color: #f9f9f9;
+            border-radius: var(--radius-sm);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--primary-dark);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--gray);
+            font-weight: 500;
+        }
+
+        /* Quick Access Courses Section */
+        .section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .view-all {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .courses-scroll {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            /* Hide scrollbar */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+
+        .courses-scroll::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+
+        .course-chip {
+            flex: 0 0 auto;
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 15px;
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .course-chip:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .course-chip-icon {
+            width: 40px;
+            height: 40px;
+            background-color: var(--primary-light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .course-chip-icon svg {
+            width: a22px;
+            height: 22px;
+            stroke: var(--primary);
+        }
+
+        .course-chip-name {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .course-chip-meta {
+            font-size: 13px;
+            color: var(--gray);
+        }
+
+        .tee-tag {
+            display: inline-block;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+
+        /* Features Section */
+        .features-section {
+            margin: 50px 0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-card {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background-color: var(--primary-light);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .feature-icon svg {
+            width: 25px;
+            height: 25px;
+            stroke: var(--primary);
+        }
+
+        .feature-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .feature-description {
+            font-size: 14px;
+            color: var(--gray);
+            flex-grow: 1;
+            margin-bottom: 15px;
+        }
+
+        .feature-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .feature-link svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--primary);
+            margin-left: 5px;
+            transition: transform 0.2s;
+        }
+
+        .feature-link:hover svg {
+            transform: translateX(3px);
+        }
+
+        .coming-soon {
+            display: inline-block;
+            background-color: #FFF8E1;
+            color: #F57C00;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 30px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Community Section */
+        .community-section {
+            margin: 50px 0;
+        }
+
+        .community-container {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 25px;
+        }
+
+        .community-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+
+        .community-info {
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .community-title {
+            font-weight: 600;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .community-description {
+            font-size: 14px;
+            color: var(--gray);
+            margin-bottom: 20px;
+        }
+
+        .social-link {
+            display: inline-flex;
+            align-items: center;
+            background-color: #F5F7FA;
+            color: #4267B2; /* Facebook blue */
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .social-link svg {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+        }
+
+        .social-link:hover {
+            background-color: #E9EEF7;
+        }
+
+        .testimonial {
+            flex: 1;
+            min-width: 280px;
+            background-color: #F9FAFB;
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            position: relative;
+        }
+
+        .quote-icon {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            opacity: 0.15;
+        }
+
+        .testimonial-text {
+            font-size: 14px;
+            line-height: 1.7;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+        }
+
+        .author-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #E1E1E1;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .author-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .author-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .author-meta {
+            font-size: 12px;
+            color: var(--gray);
+        }
+
+        /* Footer */
+        footer {
+            background-color: #f5f5f5;
+            padding: 25px 0;
+            margin-top: 60px;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-link {
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover {
+            color: var(--primary);
+        }
+
+        .footer-copyright {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .footer-note {
+            font-size: 13px;
+            color: var(--gray);
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        /* Version tag */
+        .version-tag {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--gray);
+        }
+
+        /* Media Queries */
+        @media screen and (max-width: 900px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .welcome-pattern {
+                width: 100px;
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+            .nav-links {
+                gap: 15px;
+            }
+            
+            .nav-link {
+                font-size: 14px;
+            }
+            
+            .feature-card {
+                padding: 15px;
+            }
+        }
+
+        @media screen and (max-width: 600px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .logo {
+                margin-bottom: 5px;
+            }
+            
+            .nav-links {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .logo-descriptor {
+                display: none;
+            }
+            
+            .welcome-title {
+                font-size: 20px;
+            }
+            
+            .footer-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .footer-copyright {
+                order: 2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 18V2"/>
+                    <path d="M8 6h8"/>
+                    <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                    <path d="M10 14v7"/>
+                    <path d="M14 14v7"/>
+                    <path d="M6 18h12"/>
+                    <path d="M6 22h12"/>
+                </svg>
+                <span class="logo-domain">SaTrail.com</span>
+                <span class="logo-descriptor">for ACGT Members</span>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="nav-link prominent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Book Tee Time
+                </a>
+                <a href="#" class="nav-link">Dashboard</a>
+                <a href="#" class="nav-link">About</a>
+                <a href="#" class="nav-link">Contact</a>
+                <button class="login-button">Login</button>
+            </div>
+        </div>
+    </header>
+    
+    <section class="dashboard-hero">
+        <div class="container hero-grid">
+            <div class="hero-welcome">
+                <div class="welcome-pattern"></div>
+                <div class="welcome-content">
+                    <span class="welcome-badge">Community-Built Tool</span>
+                    <h1 class="welcome-title">A better way to experience San Antonio municipal golf</h1>
+                    <p class="welcome-subtitle">SaTrail is the unofficial portal for Alamo City Golf Trail members, offering faster booking, detailed stats, and features not available on the official site.</p>
+                    
+                    <div class="welcome-features">
+                        <div class="feature-chip">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                            Track your stats
+                        </div>
+                        <div class="feature-chip">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            Faster booking
+                        </div>
+                        <div class="feature-chip">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Tee time alerts
+                        </div>
+                    </div>
+                    
+                    <a href="#" class="cta-button">Book a Tee Time</a>
+                </div>
+            </div>
+            
+            <div class="stats-panel">
+                <h3 class="stats-panel-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    Live ACGT Dashboard
+                </h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">42</div>
+                        <div class="stat-label">Available tee times today</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">8</div>
+                        <div class="stat-label">ACGT courses</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">1,450+</div>
+                        <div class="stat-label">Rounds booked via SaTrail</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">$124</div>
+                        <div class="stat-label">Avg. member spending/month</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="courses-section">
+        <div class="container">
+            <div class="section-heading">
+                <h2 class="section-title">Quick Access Courses</h2>
+                <a href="#" class="view-all">View All Courses</a>
+            </div>
+            
+            <div class="courses-scroll">
+                <a href="#" class="course-chip">
+                    <div class="course-chip-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 18V2"/>
+                            <path d="M8 6h8"/>
+                            <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                        </svg>
+                    </div>
+                    <div class="course-chip-name">Brackenridge Park</div>
+                    <div class="course-chip-meta">18 holes • Par 72</div>
+                    <div class="tee-tag">12 times today</div>
+                </a>
+                
+                <a href="#" class="course-chip">
+                    <div class="course-chip-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 18V2"/>
+                            <path d="M8 6h8"/>
+                            <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                        </svg>
+                    </div>
+                    <div class="course-chip-name">Olmos Basin</div>
+                    <div class="course-chip-meta">18 holes • Par 72</div>
+                    <div class="tee-tag">8 times today</div>
+                </a>
+                
+                <a href="#" class="course-chip">
+                    <div class="course-chip-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 18V2"/>
+                            <path d="M8 6h8"/>
+                            <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                        </svg>
+                    </div>
+                    <div class="course-chip-name">Mission Del Lago</div>
+                    <div class="course-chip-meta">18 holes • Par 72</div>
+                    <div class="tee-tag">5 times today</div>
+                </a>
+                
+                <a href="#" class="course-chip">
+                    <div class="course-chip-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 18V2"/>
+                            <path d="M8 6h8"/>
+                            <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                        </svg>
+                    </div>
+                    <div class="course-chip-name">Cedar Creek</div>
+                    <div class="course-chip-meta">18 holes • Par 72</div>
+                    <div class="tee-tag">6 times today</div>
+                </a>
+                
+                <a href="#" class="course-chip">
+                    <div class="course-chip-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 18V2"/>
+                            <path d="M8 6h8"/>
+                            <path d="M18 9c0 3-3 3-3 3h-6s-3 0-3-3C6 4 18 4 18 9z"/>
+                        </svg>
+                    </div>
+                    <div class="course-chip-name">Northern Hills</div>
+                    <div class="course-chip-meta">18 holes • Par 72</div>
+                    <div class="tee-tag">3 times today</div>
+                </a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="features-section">
+        <div class="container">
+            <div class="section-heading">
+                <h2 class="section-title">Member-Exclusive Features</h2>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Tee Time Watch</h3>
+                    <p class="feature-description">Get email notifications when spots open up for tee times that were previously full or unavailable.</p>
+                    <a href="#" class="feature-link">
+                        Learn more
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Stats Dashboard</h3>
+                    <p class="feature-description">Track your rounds, spending by course, and view detailed play history not available on the official site.</p>
+                    <a href="#" class="feature-link">
+                        View stats
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Auto-Book
+                        <span class="coming-soon">Coming Soon</span>
+                    </h3>
+                    <p class="feature-description">Automatically book tee times outside of the normal 7-day window as soon as they become available.</p>
+                    <a href="#" class="feature-link">
+                        Join waitlist
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1v22"></path>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Split Payments
+                        <span class="coming-soon">Coming Soon</span>
+                    </h3>
+                    <p class="feature-description">Book for your group and easily send payment requests to your friends via Venmo, PayPal, or Zelle.</p>
+                    <a href="#" class="feature-link">
+                        Learn more
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="community-section">
+        <div class="container">
+            <div class="section-heading">
+                <h2 class="section-title">Community</h2>
+            </div>
+            
+            <div class="community-container">
+                <div class="community-content">
+                    <div class="community-info">
+                        <h3 class="community-title">Join the ACGT Community</h3>
+                        <p class="community-description">Connect with other local golfers, share tips, arrange games, and stay updated on course conditions through our active Facebook group.</p>
+                        <a href="#" class="social-link">
+                            <svg viewBox="0 0 24 24" fill="#4267B2" stroke="none">
+                                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+                            </svg>
+                            ACGT Members Group
+                        </a>
+                    </div>
+                    
+                    <div class="testimonial">
+                        <svg class="quote-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 21c3.75-1 6-3 6-6V8.5h-6V4h10v4.5h-2.25c-.58 2.45-1.33 4.5-2.25 6.1v6.4h-5.5zm12 0c3.75-1 6-3 6-6V8.5h-6V4h10v4.5h-2.25c-.58 2.45-1.33 4.5-2.25 6.1v6.4h-5.5z"></path>
+                        </svg>
+                        <p class="testimonial-text">SaTrail has completely changed my golf experience in San Antonio. The tee time alerts feature helped me book a last-minute Saturday slot at Brack when someone cancelled. Much better than refreshing the official site every hour!</p>
+                        <div class="testimonial-author">
+                            <div class="author-avatar">M</div>
+                            <div class="author-info">
+                                <div class="author-name">Mike R.</div>
+                                <div class="author-meta">ACGT Member • 3 years</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="#" class="footer-link">About</a>
+                    <a href="#" class="footer-link">Contact</a>
+                    <a href="#" class="footer-link">Privacy Policy</a>
+                    <a href="#" class="footer-link">Terms of Use</a>
+                </div>
+                <div class="footer-copyright">© 2025 SaTrail.com | All rights reserved</div>
+            </div>
+            <p class="footer-note">SaTrail is an unofficial community-created website and is not affiliated with or endorsed by the Alamo City Golf Trail or the City of San Antonio.</p>
+        </div>
+    </footer>
+    
+    <div class="version-tag">v1.0.7</div>
+</body>
+</html>test
